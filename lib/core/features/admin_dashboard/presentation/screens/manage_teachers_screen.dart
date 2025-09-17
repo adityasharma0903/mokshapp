@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/constants/app_colors.dart';
 import '../../../../../core/models/teacher.dart';
+import '../../../../../core/services/data_service.dart';
 import 'add_teacher_screen.dart';
 import 'teacher_edit_screen.dart'; // Import the new screen
 
@@ -12,21 +13,46 @@ class ManageTeachersScreen extends StatefulWidget {
 }
 
 class _ManageTeachersScreenState extends State<ManageTeachersScreen> {
-  // Mock teacher data. In a real app, this would be fetched from a backend.
-  final List<Teacher> _teachers = [
-    Teacher(
-      id: 't001',
-      name: 'Mr. Smith',
-      email: 'smith@example.com',
-      designation: 'Professor',
-    ),
-    Teacher(
-      id: 't002',
-      name: 'Ms. Jones',
-      email: 'jones@example.com',
-      designation: 'Lecturer',
-    ),
-  ];
+  List<Teacher> _teachers = [];
+  bool _isLoading = true;
+  final DataService _dataService = DataService();
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchTeachers();
+  }
+
+  Future<void> _fetchTeachers() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final response = await _dataService.get(
+        'teachers',
+      ); // Get teacher data from API
+      if (response is List) {
+        setState(() {
+          _teachers = response.map((item) => Teacher.fromJson(item)).toList();
+        });
+      } else {
+        // Handle error if the response is not a List
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to load teacher data.')),
+        );
+      }
+    } catch (e) {
+      // Handle network or other errors
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,56 +88,62 @@ class _ManageTeachersScreenState extends State<ManageTeachersScreen> {
 
           // Teacher List
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _teachers.length,
-              itemBuilder: (context, index) {
-                final teacher = _teachers[index];
-                return Card(
-                  elevation: 2,
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.all(16),
-                    leading: const CircleAvatar(
-                      backgroundColor: AppColors.primary,
-                      child: Icon(Icons.person, color: Colors.white),
-                    ),
-                    title: Text(
-                      teacher.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Text('Designation: ${teacher.designation}'),
-                    trailing: const Icon(
-                      Icons.edit,
-                      color: AppColors.textSecondary,
-                    ),
-                    onTap: () {
-                      // Navigate to the edit screen and pass the teacher object
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              TeacherEditScreen(teacher: teacher),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: _teachers.length,
+                    itemBuilder: (context, index) {
+                      final teacher = _teachers[index];
+                      return Card(
+                        elevation: 2,
+                        margin: const EdgeInsets.symmetric(vertical: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.all(16),
+                          leading: const CircleAvatar(
+                            backgroundColor: AppColors.primary,
+                            child: Icon(Icons.person, color: Colors.white),
+                          ),
+                          title: Text(
+                            teacher.name ?? 'No Name Provided',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Text(
+                            'Designation: ${teacher.designation ?? 'Not Available'}',
+                          ),
+                          trailing: const Icon(
+                            Icons.edit,
+                            color: AppColors.textSecondary,
+                          ),
+                          onTap: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    TeacherEditScreen(teacher: teacher),
+                              ),
+                            );
+                            // After editing, refresh the list to show changes
+                            _fetchTeachers();
+                          },
                         ),
                       );
                     },
                   ),
-                );
-              },
-            ),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // Navigate to the add teacher screen
-          Navigator.push(
+        onPressed: () async {
+          await Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const AddTeacherScreen()),
           );
+          // After adding, refresh the list to show the new teacher
+          _fetchTeachers();
         },
         child: const Icon(Icons.add),
         backgroundColor: AppColors.primary,

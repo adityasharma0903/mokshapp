@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/constants/app_colors.dart';
 import '../../../../../core/models/teacher.dart';
+import '../../../../../core/services/data_service.dart';
 
 class TeacherEditScreen extends StatefulWidget {
   final Teacher teacher;
@@ -13,13 +14,26 @@ class TeacherEditScreen extends StatefulWidget {
 
 class _TeacherEditScreenState extends State<TeacherEditScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _dataService = DataService();
+
   late TextEditingController _nameController;
   late TextEditingController _emailController;
   late TextEditingController _designationController;
 
-  // New state variables for additional fields
+  // New controllers for the enhanced fields
+  late TextEditingController _contactController;
+  late TextEditingController _permanentAddressController;
+  late TextEditingController _currentAddressController;
+  late TextEditingController _fatherNameController;
+  late TextEditingController _motherNameController;
+  late TextEditingController _spouseNameController;
+
+  // State variables for dropdowns
   String? _selectedGender;
   DateTime? _selectedDateOfBirth;
+  String? _selectedMaritalStatus;
+  String? _selectedNationality;
+  String? _selectedBloodGroup;
   String? _selectedDepartment;
 
   // Mock data for dropdowns
@@ -28,6 +42,23 @@ class _TeacherEditScreenState extends State<TeacherEditScreen> {
     'Computer Science',
     'Electrical Engineering',
     'Mechanical Engineering',
+  ];
+  final List<String> _maritalStatuses = [
+    'Single',
+    'Married',
+    'Divorced',
+    'Widowed',
+  ];
+  final List<String> _nationalities = ['Indian', 'Other'];
+  final List<String> _bloodGroups = [
+    'A+',
+    'A-',
+    'B+',
+    'B-',
+    'O+',
+    'O-',
+    'AB+',
+    'AB-',
   ];
 
   @override
@@ -38,13 +69,40 @@ class _TeacherEditScreenState extends State<TeacherEditScreen> {
     _designationController = TextEditingController(
       text: widget.teacher.designation,
     );
-    // You would pre-fill other fields here if your Teacher model had them.
+
+    _contactController = TextEditingController(
+      text: widget.teacher.contactNumber,
+    );
+    _permanentAddressController = TextEditingController(
+      text: widget.teacher.permanentAddress,
+    );
+    _currentAddressController = TextEditingController(
+      text: widget.teacher.currentAddress,
+    );
+    _fatherNameController = TextEditingController(
+      text: widget.teacher.fatherName,
+    );
+    _motherNameController = TextEditingController(
+      text: widget.teacher.motherName,
+    );
+    _spouseNameController = TextEditingController(
+      text: widget.teacher.spouseName,
+    );
+
+    _selectedGender = widget.teacher.gender;
+    _selectedDateOfBirth = widget.teacher.dob;
+    _selectedMaritalStatus = widget.teacher.maritalStatus;
+    _selectedNationality = widget.teacher.nationality;
+    _selectedBloodGroup = widget.teacher.bloodGroup;
+    _selectedDepartment = widget
+        .teacher
+        .designation; // Assuming designation is also the department
   }
 
   Future<void> _selectDateOfBirth(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: DateTime(1985, 1, 1),
+      initialDate: _selectedDateOfBirth ?? DateTime(1985, 1, 1),
       firstDate: DateTime(1950),
       lastDate: DateTime.now(),
     );
@@ -55,17 +113,46 @@ class _TeacherEditScreenState extends State<TeacherEditScreen> {
     }
   }
 
-  void _saveChanges() {
+  void _saveChanges() async {
     if (_formKey.currentState!.validate()) {
-      // TODO: Implement the logic to save the updated teacher details to the database
+      final updatedTeacherData = {
+        'name': _nameController.text,
+        'email': _emailController.text,
+        'designation': _designationController.text,
+        'contact_number': _contactController.text,
+        'permanent_address': _permanentAddressController.text,
+        'current_address': _currentAddressController.text,
+        'father_name': _fatherNameController.text,
+        'mother_name': _motherNameController.text,
+        'spouse_name': _spouseNameController.text,
+        'gender': _selectedGender,
+        'dob': _selectedDateOfBirth?.toIso8601String(),
+        'marital_status': _selectedMaritalStatus,
+        'nationality': _selectedNationality,
+        'blood_group': _selectedBloodGroup,
+      };
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Teacher details updated successfully!'),
-          backgroundColor: AppColors.success,
-        ),
+      final response = await _dataService.put(
+        'teachers/edit/${widget.teacher.id}',
+        updatedTeacherData,
       );
-      Navigator.pop(context); // Go back to the previous screen
+
+      if (response['message'] != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Teacher details updated successfully!'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        Navigator.pop(context);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${response['error']}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     }
   }
 
@@ -74,7 +161,27 @@ class _TeacherEditScreenState extends State<TeacherEditScreen> {
     _nameController.dispose();
     _emailController.dispose();
     _designationController.dispose();
+    _contactController.dispose();
+    _permanentAddressController.dispose();
+    _currentAddressController.dispose();
+    _fatherNameController.dispose();
+    _motherNameController.dispose();
+    _spouseNameController.dispose();
     super.dispose();
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: AppColors.textPrimary,
+        ),
+      ),
+    );
   }
 
   @override
@@ -91,9 +198,7 @@ class _TeacherEditScreenState extends State<TeacherEditScreen> {
           key: _formKey,
           child: ListView(
             children: [
-              // Basic Information Section
-              _buildSectionTitle('Basic Information'),
-              const SizedBox(height: 16),
+              _buildSectionTitle('Personal Information'),
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(
@@ -121,31 +226,21 @@ class _TeacherEditScreenState extends State<TeacherEditScreen> {
                 validator: (value) => value!.isEmpty ? 'Required' : null,
               ),
               const SizedBox(height: 16),
-
-              // Gender and Date of Birth
-              InputDecorator(
+              DropdownButtonFormField<String>(
                 decoration: const InputDecoration(
                   labelText: 'Gender',
                   border: OutlineInputBorder(),
                 ),
-                child: Row(
-                  children: _genders
-                      .map(
-                        (gender) => Expanded(
-                          child: RadioListTile<String>(
-                            title: Text(gender),
-                            value: gender,
-                            groupValue: _selectedGender,
-                            onChanged: (String? value) {
-                              setState(() {
-                                _selectedGender = value;
-                              });
-                            },
-                          ),
-                        ),
-                      )
-                      .toList(),
-                ),
+                value: _selectedGender,
+                items: _genders
+                    .map(
+                      (String gender) =>
+                          DropdownMenuItem(value: gender, child: Text(gender)),
+                    )
+                    .toList(),
+                onChanged: (String? newValue) {
+                  setState(() => _selectedGender = newValue);
+                },
               ),
               const SizedBox(height: 16),
               ElevatedButton.icon(
@@ -169,25 +264,55 @@ class _TeacherEditScreenState extends State<TeacherEditScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-
-              // Professional Information Section
-              _buildSectionTitle('Professional Information'),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
+              _buildSectionTitle('Contact & Address'),
+              TextFormField(
+                controller: _contactController,
                 decoration: const InputDecoration(
-                  labelText: 'Department',
+                  labelText: 'Contact Number',
                   border: OutlineInputBorder(),
                 ),
-                value: _selectedDepartment,
-                items: _departments.map((String dept) {
-                  return DropdownMenuItem(value: dept, child: Text(dept));
-                }).toList(),
-                onChanged: (String? newValue) {
-                  setState(() => _selectedDepartment = newValue);
-                },
-                validator: (value) => value == null ? 'Required' : null,
               ),
-
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _permanentAddressController,
+                decoration: const InputDecoration(
+                  labelText: 'Permanent Address',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _currentAddressController,
+                decoration: const InputDecoration(
+                  labelText: 'Current Address',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 24),
+              _buildSectionTitle('Family Information'),
+              TextFormField(
+                controller: _fatherNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Father\'s Name',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _motherNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Mother\'s Name',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _spouseNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Spouse\'s Name',
+                  border: OutlineInputBorder(),
+                ),
+              ),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _saveChanges,
@@ -202,20 +327,6 @@ class _TeacherEditScreenState extends State<TeacherEditScreen> {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-          color: AppColors.textPrimary,
         ),
       ),
     );

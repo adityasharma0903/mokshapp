@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/constants/app_colors.dart';
+import '../../../../../core/models/student.dart';
 
 class StudentPersonalInfoScreen extends StatelessWidget {
-  const StudentPersonalInfoScreen({super.key});
+  final Student student;
+
+  const StudentPersonalInfoScreen({super.key, required this.student});
 
   @override
   Widget build(BuildContext context) {
@@ -24,17 +27,17 @@ class StudentPersonalInfoScreen extends StatelessWidget {
                 color: AppColors.background,
                 child: Column(
                   children: [
-                    CircleAvatar(
+                    const CircleAvatar(
                       radius: 50,
                       backgroundColor: AppColors.accent,
-                      backgroundImage: const NetworkImage(
-                        'https://via.placeholder.com/150',
-                      ), // Replace with actual image
+                      backgroundImage: NetworkImage(
+                        'https://via.placeholder.com/150', // Use student.photographUrl if available
+                      ),
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      'Student Name', // Replace with dynamic name
-                      style: TextStyle(
+                    Text(
+                      student.name ?? 'Student Name',
+                      style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
                         color: AppColors.textPrimary,
@@ -46,28 +49,66 @@ class StudentPersonalInfoScreen extends StatelessWidget {
 
               const SizedBox(height: 24),
 
-              // Student's Details Section
-              _buildSectionTitle('Student\'s Details'),
+              // Student's Personal Details
+              _buildSectionTitle('Personal Details'),
               const SizedBox(height: 8),
-              _buildInfoRow('Name', 'Student Name'),
-              _buildInfoRow('Roll No.', '25'),
-              _buildInfoRow('Gender', 'Male'),
-              _buildInfoRow('D.O.B.', '12-10-2006'),
-              _buildInfoRow('Category', 'General'),
-              _buildInfoRow('Mobile No.', '7896541230'),
-              _buildInfoRow('Email', 'student@college.edu'),
-              _buildInfoRow('Date of Admission', '29-05-2024'),
+              _buildInfoRow('Full Name', student.name ?? 'Not available'),
+              _buildInfoRow('Roll No.', student.rollNumber ?? 'Not available'),
+              _buildInfoRow('Gender', student.gender ?? 'Not available'),
+              _buildInfoRow(
+                'Date of Birth',
+                student.dob?.toIso8601String().split('T').first ??
+                    'Not available',
+              ),
+              _buildInfoRow(
+                'Nationality',
+                student.nationality ?? 'Not available',
+              ),
+              _buildInfoRow('Religion', student.religion ?? 'Not available'),
+              _buildInfoRow(
+                'Blood Group',
+                student.bloodGroup ?? 'Not available',
+              ),
 
               const SizedBox(height: 24),
 
-              // Student's Custom Field(s) Section
-              _buildSectionTitle('Student\'s Custom Field(s)'),
+              // Family Details Section
+              _buildSectionTitle('Family Details'),
               const SizedBox(height: 8),
-              _buildInfoRow('Blood Group', 'B+'),
-              _buildInfoRow('Batch Duration For ID', '2024-2025'),
-              _buildInfoRow('College Name for ID', 'Blueberry Fields School'),
-              _buildInfoRow('Class', '5th B '),
-              _buildInfoRow('Year', '2025'),
+              _buildInfoRow(
+                'Father\'s Name',
+                student.fatherName ?? 'Not available',
+              ),
+              _buildInfoRow(
+                'Mother\'s Name',
+                student.motherName ?? 'Not available',
+              ),
+              _buildInfoRow(
+                'Father\'s Email',
+                student.fatherEmail ?? 'Not available',
+              ),
+              _buildInfoRow(
+                'Contact Number',
+                student.contactNumber ?? 'Not available',
+              ),
+
+              const SizedBox(height: 24),
+
+              // School & Class Details
+              _buildSectionTitle('School & Class Details'),
+              const SizedBox(height: 8),
+              _buildInfoRow('Address', student.address ?? 'Not available'),
+              _buildInfoRow('Class', student.className ?? 'Not available'),
+              _buildInfoRow('Section', student.section ?? 'Not available'),
+              _buildInfoRow(
+                'Class Teacher',
+                student.classTeacherName ?? 'Not available',
+              ),
+              _buildInfoRow(
+                'Sibling in School',
+                student.hasSibling == true ? 'Yes' : 'No',
+              ),
+              _buildInfoRow('Transport', student.transport ?? 'Not available'),
             ],
           ),
         ),
@@ -75,7 +116,6 @@ class StudentPersonalInfoScreen extends StatelessWidget {
     );
   }
 
-  // A helper widget to create the section titles
   Widget _buildSectionTitle(String title) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -93,7 +133,6 @@ class StudentPersonalInfoScreen extends StatelessWidget {
     );
   }
 
-  // A helper widget to create each info row
   Widget _buildInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),

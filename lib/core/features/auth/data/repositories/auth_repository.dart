@@ -1,40 +1,71 @@
+// lib/core/features/auth/data/repositories/auth_repository.dart
+
 import 'dart:async';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:my_app/core/models/user.dart';
+import 'package:my_app/core/models/student.dart'; // Import Student model
+import 'package:my_app/core/models/teacher.dart'; // Import Teacher model
 
 class AuthRepository {
-  Future<User?> login(String email, String password) async {
-    // Simulate a network delay
-    await Future.delayed(const Duration(seconds: 2));
+  static const String _baseUrl = 'http://10.0.2.2:3000/api'; // Android Emulator
 
-    // Simulate successful login for a student
-    if (email == 'student@college.edu' && password == 'password') {
-      return User(
-        id: 's123',
-        name: 'Jane Doe',
-        email: email,
-        type: UserType.student,
+  Future<User?> login(String email, String password) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email, 'password': password}),
       );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> userData = jsonDecode(response.body);
+        return User.fromJson(userData);
+      } else {
+        return null;
+      }
+    } catch (e) {
+      print('Login error: $e');
+      return null;
     }
-    // Simulate successful login for a teacher
-    else if (email == 'teacher@college.edu' && password == 'password') {
-      return User(
-        id: 't456',
-        name: 'Mr. Smith',
-        email: email,
-        type: UserType.teacher,
+  }
+
+  // New method to fetch the complete student profile after login
+  Future<Student?> getStudentProfile(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/students/profile/$userId'),
+        headers: {'Content-Type': 'application/json'},
       );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> studentData = jsonDecode(response.body);
+        return Student.fromJson(studentData);
+      } else {
+        return null;
+      }
+    } catch (e) {
+      print('Error fetching student profile: $e');
+      return null;
     }
-    // Simulate successful login for an admin
-    else if (email == 'admin@college.edu' && password == 'password') {
-      return User(
-        id: 'a789',
-        name: 'Admin',
-        email: email,
-        type: UserType.admin,
+  }
+
+  // You will also need a similar method for teachers
+  Future<Teacher?> getTeacherProfile(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/teachers/profile/$userId'),
+        headers: {'Content-Type': 'application/json'},
       );
-    }
-    // Simulate failed login
-    else {
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> teacherData = jsonDecode(response.body);
+        return Teacher.fromJson(teacherData);
+      } else {
+        return null;
+      }
+    } catch (e) {
+      print('Error fetching teacher profile: $e');
       return null;
     }
   }

@@ -6,9 +6,11 @@ import 'teacher_attendance_screen.dart';
 import 'teacher_schedule_screen.dart';
 import 'teacher_profile_screen.dart';
 import 'teacher_leaves_screen.dart';
+import '../../../../../core/models/teacher.dart'; // Import the Teacher model
 
 class TeacherDashboardScreen extends StatelessWidget {
-  const TeacherDashboardScreen({super.key});
+  final Teacher teacher;
+  const TeacherDashboardScreen({super.key, required this.teacher});
 
   @override
   Widget build(BuildContext context) {
@@ -27,9 +29,10 @@ class TeacherDashboardScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Mr. Smith',
-                        style: TextStyle(
+                      Text(
+                        teacher.name ??
+                            'Teacher', // Display the dynamic name here
+                        style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
@@ -51,8 +54,9 @@ class TeacherDashboardScreen extends StatelessWidget {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) =>
-                                      const TeacherProfileScreen(),
+                                  builder: (context) => TeacherProfileScreen(
+                                    teacher: teacher,
+                                  ), // Pass the teacher object
                                 ),
                               );
                             },
@@ -138,7 +142,8 @@ class TeacherDashboardScreen extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const TeacherAttendanceScreen(),
+                        builder: (context) =>
+                            TeacherAttendanceScreen(teacher: teacher),
                       ),
                     );
                   },

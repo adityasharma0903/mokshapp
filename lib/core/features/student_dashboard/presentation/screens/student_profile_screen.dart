@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/constants/app_colors.dart';
+import '../../../../../core/models/student.dart';
 import '../../../auth/presentation/screens/login_screen.dart';
-import 'student_personal_info_screen.dart'; // Import the new screen
+import 'student_personal_info_screen.dart'; // Ensure this screen is imported
 
 class StudentProfileScreen extends StatelessWidget {
-  const StudentProfileScreen({super.key});
+  final Student student;
+
+  const StudentProfileScreen({super.key, required this.student});
 
   void _handleLogout(BuildContext context) {
-    // ... (Your existing logout code)
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (context) => const LoginScreen()),
       (Route<dynamic> route) => false,
@@ -25,7 +27,49 @@ class StudentProfileScreen extends StatelessWidget {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // ... (Your profile header section)
+            // User Profile Header Section
+            Container(
+              padding: const EdgeInsets.all(24.0),
+              color: AppColors.card,
+              width: double.infinity,
+              child: Column(
+                children: [
+                  const CircleAvatar(
+                    radius: 60,
+                    backgroundColor: AppColors.accent,
+                    backgroundImage: NetworkImage(
+                      'https://via.placeholder.com/150',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    student.name ?? 'Student Name',
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Roll. No: ${student.rollNumber ?? 'Not available'}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Profile',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 24),
 
             // Settings Section
@@ -45,7 +89,7 @@ class StudentProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // Settings Grid
+            // Settings Grid (My Details, Change Password, Logout)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: GridView.count(
@@ -63,8 +107,9 @@ class StudentProfileScreen extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) =>
-                              const StudentPersonalInfoScreen(),
+                          builder: (context) => StudentPersonalInfoScreen(
+                            student: student,
+                          ), // Pass the student object
                         ),
                       );
                     },
@@ -73,13 +118,9 @@ class StudentProfileScreen extends StatelessWidget {
                     icon: Icons.lock_open,
                     label: 'Change Password',
                     color: Colors.blue.shade100,
-                    onTap: () {},
-                  ),
-                  _buildSettingsTile(
-                    icon: Icons.security,
-                    label: 'Privacy',
-                    color: Colors.yellow.shade100,
-                    onTap: () {},
+                    onTap: () {
+                      // TODO: Implement navigation to change password page
+                    },
                   ),
                   _buildSettingsTile(
                     icon: Icons.logout,
@@ -96,7 +137,6 @@ class StudentProfileScreen extends StatelessWidget {
     );
   }
 
-  // A helper method to build each settings tile
   Widget _buildSettingsTile({
     required IconData icon,
     required String label,

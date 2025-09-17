@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../../../core/constants/app_colors.dart'; // Correct path
+import '../../../../../core/constants/app_colors.dart';
 import '../../../../features/auth/data/repositories/auth_repository.dart';
 import '../../../../features/student_dashboard/presentation/screens/student_dashboard_screen.dart';
-import '../../../../features/teacher_dashboard/presentations/screens/teacher_dashboard_screen.dart'; // Corrected path
+import '../../../../features/teacher_dashboard/presentations/screens/teacher_dashboard_screen.dart';
 import '../../../../features/admin_dashboard/presentation/screens/admin_dashboard_screen.dart';
 import '../../../../../core/models/user.dart';
+import '../../../../../core/models/student.dart';
+import '../../../../../core/models/teacher.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,6 +21,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
 
+  // lib/core/features/auth/presentation/screens/login_screen.dart
+
   Future<void> _login() async {
     setState(() {
       _isLoading = true;
@@ -30,7 +34,6 @@ class _LoginScreenState extends State<LoginScreen> {
       _passwordController.text,
     );
 
-    // After async gap, check if the widget is still mounted
     if (!mounted) return;
 
     setState(() {
@@ -39,23 +42,45 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (user != null) {
       if (user.type == UserType.student) {
-        // Navigate to the student dashboard
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const StudentDashboardScreen()),
-        );
+        // Here, the student object needs to be fetched
+        final Student? student = await authRepo.getStudentProfile(user.id);
+        if (student != null) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => StudentDashboardScreen(student: student),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to load student profile.'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
       } else if (user.type == UserType.teacher) {
-        // Navigate to the teacher dashboard
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const TeacherDashboardScreen()),
-        );
+        // Corrected line: Fetch the teacher profile and pass it to the dashboard
+        final Teacher? teacher = await authRepo.getTeacherProfile(user.id);
+        if (teacher != null) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => TeacherDashboardScreen(teacher: teacher),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to load teacher profile.'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
       } else if (user.type == UserType.admin) {
-        // Navigate to the admin dashboard
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
         );
       }
     } else {
-      // Show an error message
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Invalid email or password.'),

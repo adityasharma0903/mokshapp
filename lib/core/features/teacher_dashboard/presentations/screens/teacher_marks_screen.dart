@@ -189,7 +189,7 @@ class _TeacherMarksScreenState extends State<TeacherMarksScreen> {
                           backgroundColor: AppColors.primary,
                           child: Icon(Icons.person, color: Colors.white),
                         ),
-                        title: Text(student.name),
+                        title: Text(student.name ?? 'Student'),
                         subtitle: Text('Roll No: ${student.rollNumber}'),
                         trailing: SizedBox(
                           width: 80,

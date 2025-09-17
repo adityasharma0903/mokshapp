@@ -1,9 +1,14 @@
+// lib/features/teacher_dashboard/presentation/screens/teacher_attendance_screen.dart
+
 import 'package:flutter/material.dart';
 import '../../../../../core/constants/app_colors.dart';
-import '../../../../../core/models/student.dart'; // Import Student model
+import '../../../../../core/models/student.dart';
+import '../../../../../core/services/data_service.dart';
+import '../../../../../core/models/teacher.dart';
 
 class TeacherAttendanceScreen extends StatefulWidget {
-  const TeacherAttendanceScreen({super.key});
+  final Teacher teacher;
+  const TeacherAttendanceScreen({super.key, required this.teacher});
 
   @override
   State<TeacherAttendanceScreen> createState() =>
@@ -11,76 +16,75 @@ class TeacherAttendanceScreen extends StatefulWidget {
 }
 
 class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
-  // Mock data for classes and students
-  final List<String> _classes = [
-    'BE-CSE-3 SEM A',
-    'BE-CSE-3 SEM B',
-    'BE-IT-2 SEM A',
-  ];
-  String? _selectedClass;
-  DateTime _selectedDate = DateTime.now();
+  final DataService _dataService = DataService();
 
-  // Mock list of students. In a real app, this would be fetched based on _selectedClass.
-  final List<Student> _students = [
-    Student(
-      id: 's001',
-      name: 'Lakshya Chauhan',
-      email: 'lakshya.c@example.com', // Added email
-      rollNumber: '2410990523',
-      attendance: {},
-    ),
-    Student(
-      id: 's002',
-      name: 'Vaibhav Katyal',
-      email: 'vaibhav.k@example.com', // Added email
-      rollNumber: '2410990480',
-      attendance: {},
-    ),
-    Student(
-      id: 's003',
-      name: 'Ayush Sharma',
-      email: 'ayush.s@example.com', // Added email
-      rollNumber: '2410990524',
-      attendance: {},
-    ),
-    // ... add more students
-  ];
-  // Map to hold attendance status: studentId -> isPresent (true/false)
+  List<Map<String, dynamic>> _classes = [];
+  String? _selectedClassId;
+  String? _selectedClassName;
+
+  List<Student> _students = [];
+  bool _isLoadingClasses = true;
+  bool _isLoadingStudents = false;
+
+  DateTime _selectedDate = DateTime.now();
   late Map<String, bool> _attendanceStatus;
 
   @override
   void initState() {
     super.initState();
+    _fetchClasses();
     _attendanceStatus = {};
-    _initializeAttendanceStatus();
   }
 
-  void _initializeAttendanceStatus() {
-    for (var student in _students) {
-      _attendanceStatus[student.id] = true; // Default to present
+  Future<void> _fetchClasses() async {
+    try {
+      final response = await _dataService.get('classes');
+      if (response is List) {
+        setState(() {
+          _classes = List<Map<String, dynamic>>.from(response);
+          _isLoadingClasses = false;
+        });
+      }
+    } catch (e) {
+      setState(() => _isLoadingClasses = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to load classes.')));
     }
   }
 
-  // Function to show a date picker
+  Future<void> _fetchStudentsForClass(String classId) async {
+    setState(() {
+      _isLoadingStudents = true;
+      _students = [];
+      _attendanceStatus = {};
+    });
+
+    try {
+      final response = await _dataService.get('students/class/$classId');
+      if (response is List) {
+        setState(() {
+          _students = response.map((item) => Student.fromJson(item)).toList();
+          _isLoadingStudents = false;
+          for (var student in _students) {
+            _attendanceStatus[student.id] = true;
+          }
+        });
+      }
+    } catch (e) {
+      setState(() => _isLoadingStudents = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to load students.')));
+    }
+  }
+
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2023),
       lastDate: DateTime.now(),
-      builder: (context, child) {
-        return Theme(
-          data: ThemeData.light().copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppColors.primary,
-              onPrimary: Colors.white,
-              surface: AppColors.card,
-              onSurface: AppColors.textPrimary,
-            ),
-          ),
-          child: child!,
-        );
-      },
     );
     if (picked != null && picked != _selectedDate) {
       setState(() {
@@ -89,16 +93,43 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     }
   }
 
-  // Function to save the attendance data
-  void _saveAttendance() {
-    // TODO: Implement logic to save _attendanceStatus for _selectedDate and _selectedClass
-    // This would likely involve an API call.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Attendance saved successfully!'),
-        backgroundColor: AppColors.success,
-      ),
-    );
+  void _saveAttendance() async {
+    if (_selectedClassId == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please select a class.')));
+      return;
+    }
+
+    final attendanceData = {
+      'class_id': _selectedClassId,
+      'record_date': _selectedDate.toIso8601String().split('T').first,
+      'attendance_data': _attendanceStatus,
+      'teacher_id': widget.teacher.id,
+    };
+
+    try {
+      final response = await _dataService.post(
+        'teachers/save-attendance',
+        attendanceData,
+      );
+      if (response['message'] != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Attendance saved successfully!'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: ${response['error']}')));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to save attendance.')),
+      );
+    }
   }
 
   @override
@@ -111,7 +142,6 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
       ),
       body: Column(
         children: [
-          // Section for class and date selection
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Row(
@@ -122,20 +152,27 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                       labelText: 'Select Class',
                       border: OutlineInputBorder(),
                     ),
-                    value: _selectedClass,
-                    items: _classes.map((String cls) {
-                      return DropdownMenuItem(value: cls, child: Text(cls));
+                    value: _selectedClassId,
+                    items: _classes.map((cls) {
+                      return DropdownMenuItem(
+                        value: cls['class_id'] as String,
+                        child: Text('${cls['class_name']} - ${cls['section']}'),
+                      );
                     }).toList(),
                     onChanged: (String? newValue) {
                       setState(() {
-                        _selectedClass = newValue;
-                        // TODO: Fetch students for the selected class here
+                        _selectedClassId = newValue;
+                        _selectedClassName = _classes.firstWhere(
+                          (cls) => cls['class_id'] == newValue,
+                        )['class_name'];
                       });
+                      if (newValue != null) {
+                        _fetchStudentsForClass(newValue);
+                      }
                     },
                   ),
                 ),
                 const SizedBox(width: 16),
-                // Date Picker Button
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () => _selectDate(context),
@@ -156,12 +193,13 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
               ],
             ),
           ),
-          // Student List with Checkboxes
           Expanded(
-            child: (_selectedClass == null)
+            child: (_selectedClassId == null)
                 ? const Center(
                     child: Text('Please select a class to view students.'),
                   )
+                : _isLoadingStudents
+                ? const Center(child: CircularProgressIndicator())
                 : ListView.builder(
                     itemCount: _students.length,
                     itemBuilder: (context, index) {
@@ -182,7 +220,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                               color: Colors.white,
                             ),
                           ),
-                          title: Text(student.name),
+                          title: Text(student.name ?? 'Student'),
                           subtitle: Text('Roll No: ${student.rollNumber}'),
                           trailing: Switch(
                             value: isPresent,
@@ -198,13 +236,12 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                     },
                   ),
           ),
-          // Save Attendance Button
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: (_selectedClass == null) ? null : _saveAttendance,
+                onPressed: (_selectedClassId == null) ? null : _saveAttendance,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   padding: const EdgeInsets.symmetric(vertical: 16),

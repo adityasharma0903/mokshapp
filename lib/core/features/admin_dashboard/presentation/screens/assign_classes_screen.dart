@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/constants/app_colors.dart';
+import '../../../../../core/services/data_service.dart';
 
 class AssignClassesScreen extends StatefulWidget {
   const AssignClassesScreen({super.key});
@@ -9,36 +10,75 @@ class AssignClassesScreen extends StatefulWidget {
 }
 
 class _AssignClassesScreenState extends State<AssignClassesScreen> {
-  // Mock data for teachers, classes, and subjects
-  final List<String> _teachers = ['Mr. Smith', 'Ms. Jones', 'Mr. Brown'];
-  String? _selectedTeacher;
+  final _dataService = DataService();
 
-  final List<String> _classes = [
-    'BE-CSE-3 SEM A',
-    'BE-CSE-3 SEM B',
-    'BE-IT-2 SEM A',
-  ];
-  String? _selectedClass;
+  List<Map<String, dynamic>> _teachers = [];
+  String? _selectedTeacherId;
 
-  final List<String> _subjects = [
-    'Operating Systems',
-    'Data Structures',
-    'Algorithm Analysis',
-  ];
-  String? _selectedSubject;
+  List<Map<String, dynamic>> _classes = [];
+  String? _selectedClassId;
 
-  void _assignClass() {
-    if (_selectedTeacher != null &&
-        _selectedClass != null &&
-        _selectedSubject != null) {
-      // TODO: Implement the API call to save the class assignment to the database
+  List<Map<String, dynamic>> _subjects = [];
+  String? _selectedSubjectId;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Class assigned to $_selectedTeacher successfully!'),
-          backgroundColor: AppColors.success,
-        ),
+  @override
+  void initState() {
+    super.initState();
+    _fetchData();
+  }
+
+  Future<void> _fetchData() async {
+    // Fetch teachers, classes, and subjects from the backend
+    final teachersResponse = await _dataService.get('teachers');
+    final classesResponse = await _dataService.get('classes');
+    final subjectsResponse = await _dataService.get('subjects');
+
+    if (teachersResponse is List &&
+        classesResponse is List &&
+        subjectsResponse is List) {
+      setState(() {
+        _teachers = List<Map<String, dynamic>>.from(teachersResponse);
+        _classes = List<Map<String, dynamic>>.from(classesResponse);
+        _subjects = List<Map<String, dynamic>>.from(subjectsResponse);
+      });
+    } else {
+      // Handle error
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to load data.')));
+    }
+  }
+
+  void _assignClass() async {
+    if (_selectedTeacherId != null &&
+        _selectedClassId != null &&
+        _selectedSubjectId != null) {
+      final assignmentData = {
+        'teacher_id': _selectedTeacherId,
+        'class_id': _selectedClassId,
+        'subject_id': _selectedSubjectId,
+      };
+
+      final response = await _dataService.post(
+        'teachers/assign-class',
+        assignmentData,
       );
+
+      if (response['message'] != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Class assigned successfully!'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${response['error']}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -77,13 +117,16 @@ class _AssignClassesScreenState extends State<AssignClassesScreen> {
                 labelText: 'Select Teacher',
                 border: OutlineInputBorder(),
               ),
-              value: _selectedTeacher,
-              items: _teachers.map((String teacher) {
-                return DropdownMenuItem(value: teacher, child: Text(teacher));
+              value: _selectedTeacherId,
+              items: _teachers.map((t) {
+                return DropdownMenuItem(
+                  value: t['teacher_id'] as String,
+                  child: Text(t['name'] as String),
+                );
               }).toList(),
               onChanged: (String? newValue) {
                 setState(() {
-                  _selectedTeacher = newValue;
+                  _selectedTeacherId = newValue;
                 });
               },
             ),
@@ -93,13 +136,16 @@ class _AssignClassesScreenState extends State<AssignClassesScreen> {
                 labelText: 'Select Class',
                 border: OutlineInputBorder(),
               ),
-              value: _selectedClass,
-              items: _classes.map((String cls) {
-                return DropdownMenuItem(value: cls, child: Text(cls));
+              value: _selectedClassId,
+              items: _classes.map((cls) {
+                return DropdownMenuItem(
+                  value: cls['class_id'] as String,
+                  child: Text('${cls['class_name']} - ${cls['section']}'),
+                );
               }).toList(),
               onChanged: (String? newValue) {
                 setState(() {
-                  _selectedClass = newValue;
+                  _selectedClassId = newValue;
                 });
               },
             ),
@@ -109,13 +155,16 @@ class _AssignClassesScreenState extends State<AssignClassesScreen> {
                 labelText: 'Select Subject',
                 border: OutlineInputBorder(),
               ),
-              value: _selectedSubject,
-              items: _subjects.map((String subject) {
-                return DropdownMenuItem(value: subject, child: Text(subject));
+              value: _selectedSubjectId,
+              items: _subjects.map((sub) {
+                return DropdownMenuItem(
+                  value: sub['subject_id'] as String,
+                  child: Text(sub['subject_name'] as String),
+                );
               }).toList(),
               onChanged: (String? newValue) {
                 setState(() {
-                  _selectedSubject = newValue;
+                  _selectedSubjectId = newValue;
                 });
               },
             ),

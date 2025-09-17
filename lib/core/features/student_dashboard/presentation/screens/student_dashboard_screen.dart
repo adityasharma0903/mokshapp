@@ -2,17 +2,47 @@
 
 import 'package:flutter/material.dart';
 import '../../../../../core/constants/app_colors.dart';
-import '../widgets/dashboard_card.dart'; // Ensure this widget exists and has a correct path
+import '../../../../../core/models/student.dart'; // Import Student model
 import 'student_announcements_screen.dart';
 import 'student_marks_screen.dart';
-import 'student_attendance_screen.dart';
+import 'student_attendance_view_screen.dart';
 import 'student_schedule_screen.dart';
 import 'student_fees_screen.dart';
 import 'student_profile_screen.dart';
 import 'student_leave_screen.dart';
 
 class StudentDashboardScreen extends StatelessWidget {
-  const StudentDashboardScreen({super.key});
+  final Student student;
+
+  const StudentDashboardScreen({super.key, required this.student});
+
+  // A helper function to build the academic cards
+  Widget _buildAcademicCard(
+    BuildContext context, {
+    required String title,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 40, color: AppColors.primary),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,9 +61,9 @@ class StudentDashboardScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Michael Smith', // You can make this dynamic
-                        style: TextStyle(
+                      Text(
+                        student.name ?? 'Student', // Display student name here
+                        style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
@@ -44,7 +74,6 @@ class StudentDashboardScreen extends StatelessWidget {
                           IconButton(
                             onPressed: () {
                               // TODO: Navigate to notification screen
-                              print('Notifications button pressed');
                             },
                             icon: const Icon(
                               Icons.notifications,
@@ -57,7 +86,7 @@ class StudentDashboardScreen extends StatelessWidget {
                                 context,
                                 MaterialPageRoute(
                                   builder: (context) =>
-                                      const StudentProfileScreen(),
+                                      StudentProfileScreen(student: student),
                                 ),
                               );
                             },
@@ -73,7 +102,7 @@ class StudentDashboardScreen extends StatelessWidget {
                       filled: true,
                       fillColor: AppColors.card,
                       hintText: 'Search',
-                      prefixIcon: const Icon(
+                      prefixIcon: Icon(
                         Icons.search,
                         color: AppColors.textSecondary,
                       ),
@@ -81,13 +110,12 @@ class StudentDashboardScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
                       ),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                      contentPadding: EdgeInsets.symmetric(vertical: 10),
                     ),
                   ),
                 ],
               ),
             ),
-
             // Academics Section
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 24, 16, 0),
@@ -144,7 +172,8 @@ class StudentDashboardScreen extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const StudentAttendanceScreen(),
+                        builder: (context) =>
+                            StudentAttendanceViewScreen(student: student),
                       ),
                     );
                   },
@@ -189,34 +218,6 @@ class StudentDashboardScreen extends StatelessWidget {
                   },
                 ),
               ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // A helper function to build the academic cards
-  Widget _buildAcademicCard(
-    BuildContext context, {
-    required String title,
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 40, color: AppColors.primary),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
             ),
           ],
         ),
