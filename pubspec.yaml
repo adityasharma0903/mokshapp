@@ -4,7 +4,7 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.9.2
+  sdk: '>=3.9.2 <4.0.0'
 
 dependencies:
   flutter:
@@ -16,14 +16,29 @@ dependencies:
 
   # Add these dependencies for your college app
   provider: ^6.0.5
+
+  # Updated http to a newer version that is compatible with flutter_polyline_points
   http: ^1.1.0
+
+  # This package handles decoding the polyline from the directions API
+  flutter_polyline_points: ^2.0.0
+
   file_picker: ^8.0.0+1
+  badges: ^3.1.2  # Add this package
+  geolocator: ^14.0.2   # add this
+
+  # Removed the 'google_maps_webservice' package as it was causing a version conflict
+  # with the http package. Your code can directly use the 'http' package to get directions.
+
+  location: ^5.0.0      # For getting device location
+  socket_io_client: ^2.0.3 # For real-time communication with the backend
+  google_maps_flutter: ^2.5.0 # For displaying the map
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
 
+  flutter_lints: ^5.0.0
 
 flutter:
   uses-material-design: true

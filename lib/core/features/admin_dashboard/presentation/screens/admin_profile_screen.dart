@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/constants/app_colors.dart';
+import '../../../../../core/models/user.dart'; // Import User model
 import '../../../auth/presentation/screens/login_screen.dart';
 
 class AdminProfileScreen extends StatelessWidget {
-  const AdminProfileScreen({super.key});
+  final User user;
+
+  const AdminProfileScreen({super.key, required this.user});
 
   void _handleLogout(BuildContext context) {
-    // Clear user data and navigate back to the login screen
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (context) => const LoginScreen()),
       (Route<dynamic> route) => false,
@@ -29,35 +31,35 @@ class AdminProfileScreen extends StatelessWidget {
               padding: const EdgeInsets.all(24.0),
               color: AppColors.card,
               width: double.infinity,
-              child: const Column(
+              child: Column(
                 children: [
-                  CircleAvatar(
+                  const CircleAvatar(
                     radius: 60,
                     backgroundColor: AppColors.accent,
                     backgroundImage: NetworkImage(
                       'https://via.placeholder.com/150',
-                    ), // Replace with actual image
+                    ),
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   Text(
-                    'Admin', // Replace with dynamic user name
-                    style: TextStyle(
+                    user.name ?? 'Admin',
+                    style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
                       color: AppColors.textPrimary,
                     ),
                   ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Adminstrator Account', // Dynamic role
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Administrator Account',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 16,
                       color: AppColors.textSecondary,
                     ),
                   ),
-                  SizedBox(height: 8),
-                  Text(
+                  const SizedBox(height: 8),
+                  const Text(
                     'Profile',
                     style: TextStyle(
                       fontSize: 14,

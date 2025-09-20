@@ -1,10 +1,8 @@
-// lib/features/teacher_dashboard/presentation/screens/teacher_attendance_screen.dart
-
 import 'package:flutter/material.dart';
 import '../../../../../core/constants/app_colors.dart';
 import '../../../../../core/models/student.dart';
 import '../../../../../core/services/data_service.dart';
-import '../../../../../core/models/teacher.dart';
+import '../../../../../core/models/teacher.dart'; // Import the Teacher model
 
 class TeacherAttendanceScreen extends StatefulWidget {
   final Teacher teacher;
@@ -38,7 +36,9 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
 
   Future<void> _fetchClasses() async {
     try {
-      final response = await _dataService.get('classes');
+      final response = await _dataService.get(
+        'teachers/assigned-classes/${widget.teacher.id}',
+      );
       if (response is List) {
         setState(() {
           _classes = List<Map<String, dynamic>>.from(response);
@@ -67,7 +67,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
           _students = response.map((item) => Student.fromJson(item)).toList();
           _isLoadingStudents = false;
           for (var student in _students) {
-            _attendanceStatus[student.id] = true;
+            _attendanceStatus[student.id!] = true;
           }
         });
       }
@@ -147,30 +147,34 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
             child: Row(
               children: [
                 Expanded(
-                  child: DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(
-                      labelText: 'Select Class',
-                      border: OutlineInputBorder(),
-                    ),
-                    value: _selectedClassId,
-                    items: _classes.map((cls) {
-                      return DropdownMenuItem(
-                        value: cls['class_id'] as String,
-                        child: Text('${cls['class_name']} - ${cls['section']}'),
-                      );
-                    }).toList(),
-                    onChanged: (String? newValue) {
-                      setState(() {
-                        _selectedClassId = newValue;
-                        _selectedClassName = _classes.firstWhere(
-                          (cls) => cls['class_id'] == newValue,
-                        )['class_name'];
-                      });
-                      if (newValue != null) {
-                        _fetchStudentsForClass(newValue);
-                      }
-                    },
-                  ),
+                  child: _isLoadingClasses
+                      ? const Center(child: CircularProgressIndicator())
+                      : DropdownButtonFormField<String>(
+                          decoration: const InputDecoration(
+                            labelText: 'Select Class',
+                            border: OutlineInputBorder(),
+                          ),
+                          value: _selectedClassId,
+                          items: _classes.map((cls) {
+                            return DropdownMenuItem(
+                              value: cls['class_id'] as String,
+                              child: Text(
+                                '${cls['class_name']} - ${cls['section']}',
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (String? newValue) {
+                            setState(() {
+                              _selectedClassId = newValue;
+                              _selectedClassName = _classes.firstWhere(
+                                (cls) => cls['class_id'] == newValue,
+                              )['class_name'];
+                            });
+                            if (newValue != null) {
+                              _fetchStudentsForClass(newValue);
+                            }
+                          },
+                        ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -200,11 +204,13 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                   )
                 : _isLoadingStudents
                 ? const Center(child: CircularProgressIndicator())
+                : _students.isEmpty
+                ? const Center(child: Text('No students found for this class.'))
                 : ListView.builder(
                     itemCount: _students.length,
                     itemBuilder: (context, index) {
                       final student = _students[index];
-                      final isPresent = _attendanceStatus[student.id] ?? false;
+                      final isPresent = _attendanceStatus[student.id!] ?? false;
                       return Card(
                         margin: const EdgeInsets.symmetric(
                           horizontal: 16,
@@ -226,7 +232,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                             value: isPresent,
                             onChanged: (bool value) {
                               setState(() {
-                                _attendanceStatus[student.id] = value;
+                                _attendanceStatus[student.id!] = value;
                               });
                             },
                             activeColor: AppColors.primary,

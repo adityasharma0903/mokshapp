@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/constants/app_colors.dart';
+import '../../../../../core/services/data_service.dart';
+import '../../../../../core/models/student.dart'; // Import Student model
 
 class StudentLeaveScreen extends StatefulWidget {
-  const StudentLeaveScreen({super.key});
+  final Student student;
+  const StudentLeaveScreen({super.key, required this.student});
 
   @override
   State<StudentLeaveScreen> createState() => _StudentLeaveScreenState();
@@ -10,8 +13,10 @@ class StudentLeaveScreen extends StatefulWidget {
 
 class _StudentLeaveScreenState extends State<StudentLeaveScreen> {
   final TextEditingController _reasonController = TextEditingController();
+  final DataService _dataService = DataService();
   DateTime? _startDate;
   DateTime? _endDate;
+  bool _isLoading = false;
 
   Future<void> _selectDateRange(BuildContext context) async {
     final picked = await showDateRangePicker(
@@ -40,7 +45,7 @@ class _StudentLeaveScreenState extends State<StudentLeaveScreen> {
     }
   }
 
-  void _submitLeave() {
+  void _submitLeave() async {
     if (_reasonController.text.isEmpty ||
         _startDate == null ||
         _endDate == null) {
@@ -52,14 +57,57 @@ class _StudentLeaveScreenState extends State<StudentLeaveScreen> {
       );
       return;
     }
-    // TODO: Implement API call to submit leave request
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Leave request submitted!'),
-        backgroundColor: AppColors.success,
-      ),
+
+    // Check if the student has a class teacher assigned
+    if (widget.student.classTeacherId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot submit leave, class teacher not assigned.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    final leaveRequest = {
+      'student_id': widget.student.id,
+      'reason': _reasonController.text,
+      'start_date': _startDate!.toIso8601String().split('T').first,
+      'end_date': _endDate!.toIso8601String().split('T').first,
+      'class_teacher_id':
+          widget.student.classTeacherId, // <-- Using the actual ID here
+    };
+
+    final response = await _dataService.post(
+      'teachers/submit-leave',
+      leaveRequest,
     );
-    Navigator.of(context).pop();
+
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (response['message'] != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Leave request submitted!'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+      Navigator.of(context).pop();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${response['error']}'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 
   @override
@@ -82,7 +130,6 @@ class _StudentLeaveScreenState extends State<StudentLeaveScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Date Range Picker Button
               Card(
                 elevation: 2,
                 shape: RoundedRectangleBorder(
@@ -125,7 +172,6 @@ class _StudentLeaveScreenState extends State<StudentLeaveScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              // Reason for Leave Text Field
               TextFormField(
                 controller: _reasonController,
                 maxLines: 5,
@@ -138,20 +184,24 @@ class _StudentLeaveScreenState extends State<StudentLeaveScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              // Submit Button
-              ElevatedButton(
-                onPressed: _submitLeave,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.success,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  'Submit Request',
-                  style: TextStyle(color: Colors.white, fontSize: 18),
-                ),
+              SizedBox(
+                width: double.infinity,
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : ElevatedButton(
+                        onPressed: _submitLeave,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.success,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Submit Request',
+                          style: TextStyle(color: Colors.white, fontSize: 18),
+                        ),
+                      ),
               ),
             ],
           ),

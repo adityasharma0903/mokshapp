@@ -16,27 +16,27 @@ class DataService {
   };
 
   // --- GET Request ---
-  Future<List<dynamic>> get(String endpoint) async {
+  Future<dynamic> get(String endpoint) async {
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/$endpoint'),
         headers: _headers,
       );
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        return jsonDecode(response.body); // can be Map OR List
       } else {
         if (kDebugMode) {
           print(
             'GET request failed for $endpoint with status: ${response.statusCode}',
           );
         }
-        return [];
+        return null;
       }
     } catch (e) {
       if (kDebugMode) {
         print('Network error for GET $endpoint: $e');
       }
-      return [];
+      return null;
     }
   }
 

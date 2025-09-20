@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/constants/app_colors.dart';
+import '../../../../../core/models/user.dart'; // Import User model
 import 'manage_students_screen.dart';
 import 'manage_teachers_screen.dart';
 import 'manage_announcements_screen.dart';
 import 'assign_classes_screen.dart';
-import 'admin_profile_screen.dart'; // Import the new profile screen
+import 'admin_profile_screen.dart';
 
 class AdminDashboardScreen extends StatelessWidget {
-  const AdminDashboardScreen({super.key});
+  final User user; // Accept the user object
+  const AdminDashboardScreen({super.key, required this.user});
 
   @override
   Widget build(BuildContext context) {
@@ -22,26 +24,26 @@ class AdminDashboardScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 50, 16, 16),
               color: AppColors.primary,
               child: Column(
-                // Column is no longer const because we're adding dynamic content
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Admin Panel',
-                        style: TextStyle(
+                      Text(
+                        user.name ?? 'Admin',
+                        style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                         ),
                       ),
                       IconButton(
-                        // Added IconButton for profile
                         onPressed: () {
+                          // Pass the user object to the profile screen
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const AdminProfileScreen(),
+                              builder: (context) =>
+                                  AdminProfileScreen(user: user),
                             ),
                           );
                         },
@@ -129,7 +131,9 @@ class AdminDashboardScreen extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const ManageAnnouncementsScreen(),
+                        // Pass the admin's ID to the announcements screen
+                        builder: (context) =>
+                            ManageAnnouncementsScreen(adminId: user.id),
                       ),
                     );
                   },

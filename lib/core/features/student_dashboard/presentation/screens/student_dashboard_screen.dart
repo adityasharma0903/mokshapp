@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/constants/app_colors.dart';
 import '../../../../../core/models/student.dart'; // Import Student model
+import '../../../../../core/services/data_service.dart';
 import 'student_announcements_screen.dart';
 import 'student_marks_screen.dart';
 import 'student_attendance_view_screen.dart';
@@ -10,18 +11,56 @@ import 'student_schedule_screen.dart';
 import 'student_fees_screen.dart';
 import 'student_profile_screen.dart';
 import 'student_leave_screen.dart';
+import 'track_vehicle_screen.dart';
+import 'package:badges/badges.dart' as badges;
 
-class StudentDashboardScreen extends StatelessWidget {
+class StudentDashboardScreen extends StatefulWidget {
   final Student student;
-
   const StudentDashboardScreen({super.key, required this.student});
 
-  // A helper function to build the academic cards
+  @override
+  State<StudentDashboardScreen> createState() => _StudentDashboardScreenState();
+}
+
+class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
+  final DataService _dataService = DataService();
+  int _notificationCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUnreadCount();
+  }
+
+  Future<void> _fetchUnreadCount() async {
+    final response = await _dataService.get(
+      'announcements/unread-count/${widget.student.id}',
+    );
+    if (mounted && response is Map && response['unread_count'] != null) {
+      setState(() {
+        _notificationCount = response['unread_count'];
+      });
+    }
+  }
+
+  Future<void> _markAllAsRead() async {
+    await _dataService.put(
+      'announcements/mark-as-read/${widget.student.id}',
+      {},
+    );
+    if (mounted) {
+      setState(() {
+        _notificationCount = 0;
+      });
+    }
+  }
+
   Widget _buildAcademicCard(
     BuildContext context, {
     required String title,
     required IconData icon,
     required VoidCallback onTap,
+    int? unreadCount,
   }) {
     return InkWell(
       onTap: onTap,
@@ -31,7 +70,18 @@ class StudentDashboardScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 40, color: AppColors.primary),
+            if (title == 'Announcements' &&
+                unreadCount != null &&
+                unreadCount > 0)
+              badges.Badge(
+                badgeContent: Text(
+                  unreadCount.toString(),
+                  style: const TextStyle(color: Colors.white),
+                ),
+                child: Icon(icon, size: 40, color: AppColors.primary),
+              )
+            else
+              Icon(icon, size: 40, color: AppColors.primary),
             const SizedBox(height: 8),
             Text(
               title,
@@ -52,9 +102,8 @@ class StudentDashboardScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header Section with Name, Search, and Icons
             Container(
-              padding: const EdgeInsets.fromLTRB(16, 50, 16, 16),
+              padding: const EdgeInsets.fromLTRB(16.0, 50.0, 16.0, 16.0),
               color: AppColors.primary,
               child: Column(
                 children: [
@@ -62,7 +111,7 @@ class StudentDashboardScreen extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        student.name ?? 'Student', // Display student name here
+                        widget.student.name ?? 'Student',
                         style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -71,13 +120,27 @@ class StudentDashboardScreen extends StatelessWidget {
                       ),
                       Row(
                         children: [
-                          IconButton(
-                            onPressed: () {
-                              // TODO: Navigate to notification screen
-                            },
-                            icon: const Icon(
-                              Icons.notifications,
-                              color: Colors.white,
+                          badges.Badge(
+                            badgeContent: Text(
+                              _notificationCount.toString(),
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                            showBadge: _notificationCount > 0,
+                            child: IconButton(
+                              onPressed: () {
+                                _markAllAsRead();
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const StudentAnnouncementsScreen(),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(
+                                Icons.notifications,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                           IconButton(
@@ -85,8 +148,9 @@ class StudentDashboardScreen extends StatelessWidget {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) =>
-                                      StudentProfileScreen(student: student),
+                                  builder: (context) => StudentProfileScreen(
+                                    student: widget.student,
+                                  ),
                                 ),
                               );
                             },
@@ -96,7 +160,7 @@ class StudentDashboardScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 16.0),
                   TextField(
                     decoration: InputDecoration(
                       filled: true,
@@ -110,15 +174,14 @@ class StudentDashboardScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
                       ),
-                      contentPadding: EdgeInsets.symmetric(vertical: 10),
+                      contentPadding: EdgeInsets.symmetric(vertical: 10.0),
                     ),
                   ),
                 ],
               ),
             ),
-            // Academics Section
             const Padding(
-              padding: EdgeInsets.fromLTRB(16, 24, 16, 0),
+              padding: EdgeInsets.fromLTRB(16.0, 24.0, 16.0, 0),
               child: Text(
                 'Academics',
                 style: TextStyle(
@@ -128,7 +191,7 @@ class StudentDashboardScreen extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 16.0),
             GridView.count(
               crossAxisCount: 3,
               shrinkWrap: true,
@@ -142,6 +205,7 @@ class StudentDashboardScreen extends StatelessWidget {
                   title: 'Announcements',
                   icon: Icons.campaign,
                   onTap: () {
+                    _markAllAsRead();
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -150,6 +214,7 @@ class StudentDashboardScreen extends StatelessWidget {
                       ),
                     );
                   },
+                  unreadCount: _notificationCount,
                 ),
                 _buildAcademicCard(
                   context,
@@ -159,7 +224,8 @@ class StudentDashboardScreen extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const StudentMarksScreen(),
+                        builder: (context) =>
+                            StudentMarksScreen(student: widget.student),
                       ),
                     );
                   },
@@ -172,8 +238,9 @@ class StudentDashboardScreen extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) =>
-                            StudentAttendanceViewScreen(student: student),
+                        builder: (context) => StudentAttendanceViewScreen(
+                          student: widget.student,
+                        ),
                       ),
                     );
                   },
@@ -212,7 +279,22 @@ class StudentDashboardScreen extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const StudentLeaveScreen(),
+                        builder: (context) =>
+                            StudentLeaveScreen(student: widget.student),
+                      ),
+                    );
+                  },
+                ),
+                _buildAcademicCard(
+                  context,
+                  title: 'Track Vehicle',
+                  icon: Icons.location_on,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            TrackVehicleScreen(student: widget.student),
                       ),
                     );
                   },
@@ -224,4 +306,44 @@ class StudentDashboardScreen extends StatelessWidget {
       ),
     );
   }
+
+  // The helper function is moved inside the class and correctly uses widget.student
+  //   Widget _buildAcademicCard(
+  //     BuildContext context, {
+  //     required String title,
+  //     required IconData icon,
+  //     required VoidCallback onTap,
+  //     int? unreadCount,
+  //   }) {
+  //     return InkWell(
+  //       onTap: onTap,
+  //       child: Card(
+  //         elevation: 2,
+  //         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+  //         child: Column(
+  //           mainAxisAlignment: MainAxisAlignment.center,
+  //           children: [
+  //             if (title == 'Announcements' &&
+  //                 unreadCount != null &&
+  //                 unreadCount > 0)
+  //               badges.Badge(
+  //                 badgeContent: Text(
+  //                   unreadCount.toString(),
+  //                   style: const TextStyle(color: Colors.white),
+  //                 ),
+  //                 child: Icon(icon, size: 40, color: AppColors.primary),
+  //               )
+  //             else
+  //               Icon(icon, size: 40, color: AppColors.primary),
+  //             const SizedBox(height: 8),
+  //             Text(
+  //               title,
+  //               textAlign: TextAlign.center,
+  //               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+  //             ),
+  //           ],
+  //         ),
+  //       ),
+  //     );
+  //   }
 }

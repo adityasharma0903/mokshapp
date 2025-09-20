@@ -190,4 +190,138 @@ router.post('/save-attendance', async (req, res) => {
 });
 
 
+
+// Endpoint to get all leave requests for a specific teacher
+router.get('/leaves/:teacherId', async (req, res) => {
+    const teacherId = req.params.teacherId;
+    try {
+        const query = `
+            SELECT
+                lr.*, s.name AS student_name, s.roll_number
+            FROM leave_requests lr
+            JOIN students s ON lr.student_id = s.student_id
+            WHERE lr.class_teacher_id = ?
+            ORDER BY lr.created_at DESC;
+        `;
+        const [rows] = await req.db.query(query, [teacherId]);
+        res.status(200).send(rows);
+    } catch (err) {
+        console.error('Error fetching teacher leaves:', err);
+        res.status(500).send({ error: 'Internal server error.' });
+    }
+});
+
+// Endpoint to approve/reject a leave request
+router.put('/leaves/update/:leaveId', async (req, res) => {
+    const leaveId = req.params.leaveId;
+    const { status } = req.body;
+    if (!status) {
+        return res.status(400).send({ error: 'Status is required.' });
+    }
+    try {
+        const [result] = await req.db.query('UPDATE leave_requests SET status = ? WHERE leave_id = ?', [status, leaveId]);
+        if (result.affectedRows > 0) {
+            res.status(200).send({ message: `Leave request ${status.toLowerCase()}d.` });
+        } else {
+            res.status(404).send({ error: 'Leave request not found.' });
+        }
+    } catch (err) {
+        console.error('Error updating leave status:', err);
+        res.status(500).send({ error: 'Internal server error.' });
+    }
+});
+
+
+// Endpoint to submit a leave request
+router.post('/submit-leave', async (req, res) => {
+    const { student_id, reason, start_date, end_date, class_teacher_id } = req.body;
+
+    if (!student_id || !reason || !start_date || !end_date || !class_teacher_id) {
+        return res.status(400).send({ error: 'Missing required fields.' });
+    }
+
+    try {
+        const leave_id = uuidv4();
+        await req.db.query(
+            'INSERT INTO leave_requests (leave_id, student_id, reason, start_date, end_date, class_teacher_id, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [leave_id, student_id, reason, start_date, end_date, class_teacher_id, 'Pending']
+        );
+        res.status(201).send({ message: 'Leave request submitted successfully.' });
+    } catch (err) {
+        console.error('Error submitting leave:', err);
+        res.status(500).send({ error: 'Failed to submit leave request.' });
+    }
+});
+
+
+// teachers.js ke file mein, existing code ke neeche yeh add karein
+
+router.get('/leave-history/:teacherId', async (req, res) => {
+    const teacherId = req.params.teacherId;
+    try {
+        const [rows] = await req.db.query(
+            `SELECT
+                lr.leave_id, lr.student_id, lr.reason, lr.start_date, lr.end_date, lr.status,
+                s.name AS student_name, s.roll_number
+            FROM leave_requests lr
+            JOIN students s ON lr.student_id = s.student_id
+            WHERE lr.class_teacher_id = ? AND lr.status IN ('Approved', 'Rejected')
+            ORDER BY lr.start_date DESC`,
+            [teacherId]
+        );
+        res.status(200).send(rows);
+    } catch (err) {
+        console.error('Error fetching teacher leave history:', err);
+        res.status(500).send({ error: 'Internal server error.' });
+    }
+});
+
+
+// my_app_backend/routes/teachers.js
+
+// ... existing routes ...
+
+router.get('/assigned-classes/:teacherId', async (req, res) => {
+    const teacherId = req.params.teacherId;
+    try {
+        const query = `
+            SELECT DISTINCT c.class_id, c.class_name, c.section, s.subject_id, s.subject_name
+            FROM classes c
+            JOIN class_subject_assignments csa ON c.class_id = csa.class_id
+            JOIN subjects s ON csa.subject_id = s.subject_id
+            WHERE csa.teacher_id = ?
+            ORDER BY c.class_name, c.section, s.subject_name;
+        `;
+        const [rows] = await req.db.query(query, [teacherId]);
+        res.status(200).send(rows);
+    } catch (err) {
+        console.error('Error fetching assigned classes:', err);
+        res.status(500).send({ error: 'Internal server error.' });
+    }
+});
+
+router.post('/upload-marks', async (req, res) => {
+    const { student_id, class_id, subject_id, assessment_title, marks_obtained, total_marks, uploaded_by_teacher_id } = req.body;
+    if (!student_id || !class_id || !subject_id || !assessment_title || !uploaded_by_teacher_id) {
+        return res.status(400).send({ error: 'Missing required data.' });
+    }
+
+    try {
+        const mark_id = uuidv4();
+        await req.db.query(
+            'INSERT INTO marks (mark_id, student_id, class_id, subject_id, assessment_title, marks_obtained, total_marks, uploaded_by_teacher_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [mark_id, student_id, class_id, subject_id, assessment_title, marks_obtained, total_marks, uploaded_by_teacher_id]
+        );
+        res.status(201).send({ message: 'Marks uploaded successfully.' });
+    } catch (err) {
+        console.error('Error uploading marks:', err);
+        res.status(500).send({ error: 'Failed to upload marks.' });
+    }
+});
+
+// ... your existing module.exports = router;
+
+
+
+
 module.exports = router;

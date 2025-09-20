@@ -1,45 +1,69 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/constants/app_colors.dart';
+import '../../../../../core/models/teacher.dart';
+import '../../../../../core/services/data_service.dart';
 
-class TeacherLeavesScreen extends StatelessWidget {
-  const TeacherLeavesScreen({super.key});
+class TeacherLeavesScreen extends StatefulWidget {
+  final Teacher teacher;
+  const TeacherLeavesScreen({super.key, required this.teacher});
 
-  // Mock list of leave requests
-  final List<Map<String, dynamic>> _leaveRequests = const [
-    {
-      'name': 'Vaibhav Katyal',
-      'reason': 'Family emergency',
-      'startDate': '2025-09-20',
-      'endDate': '2025-09-22',
-      'status': 'Pending',
-    },
-    {
-      'name': 'Ayush Sharma',
-      'reason': 'Medical appointment',
-      'startDate': '2025-09-18',
-      'endDate': '2025-09-18',
-      'status': 'Pending',
-    },
-  ];
+  @override
+  State<TeacherLeavesScreen> createState() => _TeacherLeavesScreenState();
+}
 
-  void _approveLeave(BuildContext context) {
-    // TODO: Implement API call to approve the leave request
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Leave Approved!'),
-        backgroundColor: AppColors.success,
-      ),
-    );
+class _TeacherLeavesScreenState extends State<TeacherLeavesScreen> {
+  final DataService _dataService = DataService();
+  List<dynamic> _leaveRequests = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLeaveRequests();
   }
 
-  void _rejectLeave(BuildContext context) {
-    // TODO: Implement API call to reject the leave request
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Leave Rejected!'),
-        backgroundColor: AppColors.error,
-      ),
-    );
+  Future<void> _fetchLeaveRequests() async {
+    try {
+      final response = await _dataService.get(
+        'teachers/leaves/${widget.teacher.id}',
+      );
+      if (mounted && response is List) {
+        setState(() {
+          _leaveRequests = response;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to load leave requests.')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _updateLeaveStatus(String leaveId, String status) async {
+    final response = await _dataService.put('teachers/leaves/update/$leaveId', {
+      'status': status,
+    });
+    if (mounted) {
+      if (response['message'] != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Leave request ${status.toLowerCase()}d.')),
+        );
+        _fetchLeaveRequests(); // Refresh the list
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${response['error']}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -50,37 +74,57 @@ class TeacherLeavesScreen extends StatelessWidget {
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
-      body: ListView.builder(
-        itemCount: _leaveRequests.length,
-        itemBuilder: (context, index) {
-          final request = _leaveRequests[index];
-          return Card(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: ListTile(
-              title: Text(request['name']),
-              subtitle: Text(
-                '${request['reason']}\nDates: ${request['startDate']} to ${request['endDate']}',
-              ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(
-                      Icons.check_circle,
-                      color: AppColors.success,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _leaveRequests.isEmpty
+          ? const Center(child: Text('No new leave requests.'))
+          : ListView.builder(
+              itemCount: _leaveRequests.length,
+              itemBuilder: (context, index) {
+                final request = _leaveRequests[index];
+                return Card(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: ListTile(
+                    leading: const Icon(
+                      Icons.event_busy,
+                      color: AppColors.primary,
                     ),
-                    onPressed: () => _approveLeave(context),
+                    title: Text(request['student_name'] ?? 'Unknown Student'),
+                    subtitle: Text(
+                      'Reason: ${request['reason']}\nDates: ${request['start_date'].toString().split('T').first} to ${request['end_date'].toString().split('T').first}',
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.check_circle,
+                            color: AppColors.success,
+                          ),
+                          onPressed: () => _updateLeaveStatus(
+                            request['leave_id'],
+                            'Approved',
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.cancel,
+                            color: AppColors.error,
+                          ),
+                          onPressed: () => _updateLeaveStatus(
+                            request['leave_id'],
+                            'Rejected',
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.cancel, color: AppColors.error),
-                    onPressed: () => _rejectLeave(context),
-                  ),
-                ],
-              ),
+                );
+              },
             ),
-          );
-        },
-      ),
     );
   }
 }

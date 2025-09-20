@@ -124,7 +124,8 @@ router.get('/profile/:userId', async (req, res) => {
                 s.religion, s.blood_group, sp.father_name, sp.mother_name, sp.father_email,
                 s.contact_number, s.permanent_address AS address, s.photograph_url,
                 s.transport_acquired, s.has_sibling,
-                c.class_name, c.section, t.name AS class_teacher_name
+                c.class_name, c.section, t.name AS class_teacher_name,
+                c.class_teacher_id
             FROM students s
             LEFT JOIN student_parents sp ON s.student_id = sp.student_id
             LEFT JOIN student_enrollments se ON s.student_id = se.student_id
@@ -141,6 +142,54 @@ router.get('/profile/:userId', async (req, res) => {
         }
     } catch (err) {
         console.error('Error fetching student profile:', err);
+        res.status(500).send({ error: 'Internal server error.' });
+    }
+});
+
+
+// students.js ke file mein, existing code ke neeche yeh add karein
+
+router.get('/leave-history/:studentId', async (req, res) => {
+    const studentId = req.params.studentId;
+    try {
+        const [rows] = await req.db.query(
+            `SELECT
+                leave_id, reason, start_date, end_date, status
+            FROM leave_requests
+            WHERE student_id = ?
+            ORDER BY start_date DESC`,
+            [studentId]
+        );
+        res.status(200).send(rows);
+    } catch (err) {
+        console.error('Error fetching student leave history:', err);
+        res.status(500).send({ error: 'Internal server error.' });
+    }
+});
+
+router.get('/marks/:studentId', async (req, res) => {
+    const studentId = req.params.studentId;
+    try {
+        const query = `
+            SELECT subject_id, assessment_title, marks_obtained, total_marks
+            FROM marks
+            WHERE student_id = ?
+            ORDER BY uploaded_at DESC;
+        `;
+        const [rows] = await req.db.query(query, [studentId]);
+
+        // To get subject names, we need to join with the subjects table
+        const marksWithSubjects = await Promise.all(rows.map(async (mark) => {
+            const [subjectRows] = await req.db.query('SELECT subject_name FROM subjects WHERE subject_id = ?', [mark.subject_id]);
+            return {
+                ...mark,
+                subject_name: subjectRows.length > 0 ? subjectRows[0].subject_name : 'Unknown Subject'
+            };
+        }));
+
+        res.status(200).send(marksWithSubjects);
+    } catch (err) {
+        console.error('Error fetching student marks:', err);
         res.status(500).send({ error: 'Internal server error.' });
     }
 });

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../../../core/constants/app_colors.dart';
+import '../../../../../core/services/data_service.dart';
 
 class ManageAnnouncementsScreen extends StatefulWidget {
-  const ManageAnnouncementsScreen({super.key});
+  final String adminId; // New parameter to hold the admin's ID
+  const ManageAnnouncementsScreen({super.key, required this.adminId});
 
   @override
   State<ManageAnnouncementsScreen> createState() =>
@@ -12,6 +14,7 @@ class ManageAnnouncementsScreen extends StatefulWidget {
 
 class _ManageAnnouncementsScreenState extends State<ManageAnnouncementsScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _dataService = DataService();
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _messageController = TextEditingController();
   bool _isLoading = false;
@@ -48,24 +51,46 @@ class _ManageAnnouncementsScreenState extends State<ManageAnnouncementsScreen> {
       setState(() {
         _isLoading = true;
       });
-      await Future.delayed(const Duration(seconds: 2));
+
+      final String? attachmentUrl = _selectedFile?.name;
+
+      final announcementData = {
+        'title': _titleController.text,
+        'message': _messageController.text,
+        'attachment_url': attachmentUrl,
+        'posted_by': widget.adminId, // Use the real admin ID
+      };
+
+      final response = await _dataService.post(
+        'announcements/add',
+        announcementData,
+      );
+
       if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Announcement posted successfully!'),
-          backgroundColor: AppColors.success,
-        ),
-      );
-
-      _titleController.clear();
-      _messageController.clear();
-      setState(() {
-        _selectedFile = null;
-      });
+      if (response['message'] != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Announcement posted successfully!'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        _titleController.clear();
+        _messageController.clear();
+        setState(() {
+          _selectedFile = null;
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${response['error']}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     }
   }
 
@@ -102,7 +127,6 @@ class _ManageAnnouncementsScreenState extends State<ManageAnnouncementsScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                // Title Field
                 TextFormField(
                   controller: _titleController,
                   decoration: InputDecoration(
@@ -121,7 +145,6 @@ class _ManageAnnouncementsScreenState extends State<ManageAnnouncementsScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
-                // Message Field
                 TextFormField(
                   controller: _messageController,
                   maxLines: 8,
@@ -141,7 +164,6 @@ class _ManageAnnouncementsScreenState extends State<ManageAnnouncementsScreen> {
                   },
                 ),
                 const SizedBox(height: 24),
-                // File Picker Section
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -181,14 +203,12 @@ class _ManageAnnouncementsScreenState extends State<ManageAnnouncementsScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                // Display the selected file name
                 if (_selectedFile != null)
                   Text(
                     'Selected File: ${_selectedFile!.name}',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 const SizedBox(height: 24),
-                // Post Button
                 SizedBox(
                   width: double.infinity,
                   child: _isLoading

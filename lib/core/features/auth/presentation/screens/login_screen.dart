@@ -1,3 +1,5 @@
+// lib/core/features/auth/presentation/screens/login_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../../core/constants/app_colors.dart';
@@ -8,6 +10,7 @@ import '../../../../features/admin_dashboard/presentation/screens/admin_dashboar
 import '../../../../../core/models/user.dart';
 import '../../../../../core/models/student.dart';
 import '../../../../../core/models/teacher.dart';
+import '../../../../../core/features/driver_dashboard/presentation/screens/driver_dashboard.dart'; // Import the new screen
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -20,8 +23,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
-
-  // lib/core/features/auth/presentation/screens/login_screen.dart
 
   Future<void> _login() async {
     setState(() {
@@ -42,7 +43,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (user != null) {
       if (user.type == UserType.student) {
-        // Here, the student object needs to be fetched
         final Student? student = await authRepo.getStudentProfile(user.id);
         if (student != null) {
           Navigator.of(context).pushReplacement(
@@ -59,7 +59,6 @@ class _LoginScreenState extends State<LoginScreen> {
           );
         }
       } else if (user.type == UserType.teacher) {
-        // Corrected line: Fetch the teacher profile and pass it to the dashboard
         final Teacher? teacher = await authRepo.getTeacherProfile(user.id);
         if (teacher != null) {
           Navigator.of(context).pushReplacement(
@@ -77,7 +76,12 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       } else if (user.type == UserType.admin) {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
+          MaterialPageRoute(builder: (_) => AdminDashboardScreen(user: user)),
+        );
+      } else if (user.type == UserType.driver) {
+        // Here is the new logic for the driver user type
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => DriverDashboard(userId: user.id)),
         );
       }
     } else {

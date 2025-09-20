@@ -1,16 +1,97 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/constants/app_colors.dart';
+import '../../../../../core/models/teacher.dart';
+import '../../../../../core/services/data_service.dart';
 import 'teacher_announcements_screen.dart';
 import 'teacher_marks_screen.dart';
 import 'teacher_attendance_screen.dart';
 import 'teacher_schedule_screen.dart';
 import 'teacher_profile_screen.dart';
 import 'teacher_leaves_screen.dart';
-import '../../../../../core/models/teacher.dart'; // Import the Teacher model
+import 'package:badges/badges.dart' as badges;
 
-class TeacherDashboardScreen extends StatelessWidget {
+import 'Teacher_Leave_History_Screen.dart';
+
+class TeacherDashboardScreen extends StatefulWidget {
   final Teacher teacher;
   const TeacherDashboardScreen({super.key, required this.teacher});
+
+  @override
+  State<TeacherDashboardScreen> createState() => _TeacherDashboardScreenState();
+}
+
+class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
+  final DataService _dataService = DataService();
+  int _notificationCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUnreadCount();
+  }
+
+  Future<void> _fetchUnreadCount() async {
+    final response = await _dataService.get(
+      'announcements/unread-count/${widget.teacher.id}',
+    );
+    // if (mounted && response is Map && response['unread_count'] != null) {
+    //   setState(() {
+    //     _notificationCount = response['unread_count'];
+    //   });
+    // }
+  }
+
+  Future<void> _markAllAsRead() async {
+    await _dataService.put(
+      'announcements/mark-as-read/${widget.teacher.id}',
+      {},
+    );
+    if (mounted) {
+      setState(() {
+        _notificationCount = 0;
+      });
+    }
+  }
+
+  // A helper function to build the dashboard cards
+  Widget _buildDashboardCard(
+    BuildContext context, {
+    required String title,
+    required IconData icon,
+    required VoidCallback onTap,
+    int? unreadCount,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (title == 'Announcements' &&
+                unreadCount != null &&
+                unreadCount > 0)
+              badges.Badge(
+                badgeContent: Text(
+                  unreadCount.toString(),
+                  style: const TextStyle(color: Colors.white),
+                ),
+                child: Icon(icon, size: 40, color: AppColors.primary),
+              )
+            else
+              Icon(icon, size: 40, color: AppColors.primary),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -20,9 +101,8 @@ class TeacherDashboardScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header Section with Name, Search, and Icons
             Container(
-              padding: const EdgeInsets.fromLTRB(16, 50, 16, 16),
+              padding: const EdgeInsets.fromLTRB(16.0, 50.0, 16.0, 16.0),
               color: AppColors.primary,
               child: Column(
                 children: [
@@ -30,8 +110,7 @@ class TeacherDashboardScreen extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        teacher.name ??
-                            'Teacher', // Display the dynamic name here
+                        widget.teacher.name ?? 'Teacher',
                         style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -40,13 +119,27 @@ class TeacherDashboardScreen extends StatelessWidget {
                       ),
                       Row(
                         children: [
-                          IconButton(
-                            onPressed: () {
-                              // TODO: Navigate to notification screen
-                            },
-                            icon: const Icon(
-                              Icons.notifications,
-                              color: Colors.white,
+                          badges.Badge(
+                            badgeContent: Text(
+                              _notificationCount.toString(),
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                            showBadge: _notificationCount > 0,
+                            child: IconButton(
+                              onPressed: () {
+                                _markAllAsRead();
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const TeacherAnnouncementsScreen(),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(
+                                Icons.notifications,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                           IconButton(
@@ -55,8 +148,8 @@ class TeacherDashboardScreen extends StatelessWidget {
                                 context,
                                 MaterialPageRoute(
                                   builder: (context) => TeacherProfileScreen(
-                                    teacher: teacher,
-                                  ), // Pass the teacher object
+                                    teacher: widget.teacher,
+                                  ),
                                 ),
                               );
                             },
@@ -66,7 +159,7 @@ class TeacherDashboardScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 16.0),
                   TextField(
                     decoration: InputDecoration(
                       filled: true,
@@ -80,15 +173,14 @@ class TeacherDashboardScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
                       ),
-                      contentPadding: EdgeInsets.symmetric(vertical: 10),
+                      contentPadding: EdgeInsets.symmetric(vertical: 10.0),
                     ),
                   ),
                 ],
               ),
             ),
-            // Teacher Tools Section
             const Padding(
-              padding: EdgeInsets.fromLTRB(16, 24, 16, 0),
+              padding: EdgeInsets.fromLTRB(16.0, 24.0, 16.0, 0),
               child: Text(
                 'Teacher Tools',
                 style: TextStyle(
@@ -98,7 +190,7 @@ class TeacherDashboardScreen extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 16.0),
             GridView.count(
               crossAxisCount: 3,
               shrinkWrap: true,
@@ -112,6 +204,7 @@ class TeacherDashboardScreen extends StatelessWidget {
                   title: 'Announcements',
                   icon: Icons.campaign,
                   onTap: () {
+                    _markAllAsRead();
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -120,6 +213,7 @@ class TeacherDashboardScreen extends StatelessWidget {
                       ),
                     );
                   },
+                  unreadCount: _notificationCount,
                 ),
                 _buildDashboardCard(
                   context,
@@ -129,7 +223,8 @@ class TeacherDashboardScreen extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const TeacherMarksScreen(),
+                        builder: (context) =>
+                            TeacherMarksScreen(teacher: widget.teacher),
                       ),
                     );
                   },
@@ -143,7 +238,7 @@ class TeacherDashboardScreen extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (context) =>
-                            TeacherAttendanceScreen(teacher: teacher),
+                            TeacherAttendanceScreen(teacher: widget.teacher),
                       ),
                     );
                   },
@@ -169,40 +264,28 @@ class TeacherDashboardScreen extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const TeacherLeavesScreen(),
+                        builder: (context) =>
+                            TeacherLeavesScreen(teacher: widget.teacher),
+                      ),
+                    );
+                  },
+                ),
+
+                _buildDashboardCard(
+                  context,
+                  title: 'Leave History',
+                  icon: Icons.history,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            TeacherLeaveHistoryScreen(teacher: widget.teacher),
                       ),
                     );
                   },
                 ),
               ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // The helper function is outside the build method, which is fine.
-  Widget _buildDashboardCard(
-    BuildContext context, {
-    required String title,
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 40, color: AppColors.primary),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
             ),
           ],
         ),
