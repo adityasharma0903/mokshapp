@@ -3,10 +3,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart'; // For kDebugMode
+import '../constants/app_constants.dart'; // ✅ Import constants
 
 class DataService {
   // Use a different base URL for the web, mobile emulator, or a physical device
-  static const String _baseUrl = 'http://10.0.2.2:3000/api'; // Android Emulator
+  static final String _baseUrl = AppConstants.baseUrl;
   // static const String _baseUrl = 'http://localhost:3000/api'; // iOS Simulator
   // static const String _baseUrl = 'http://192.168.x.x:3000/api'; // Physical device
 

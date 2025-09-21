@@ -6,9 +6,10 @@ import 'package:http/http.dart' as http;
 import 'package:my_app/core/models/user.dart';
 import 'package:my_app/core/models/student.dart'; // Import Student model
 import 'package:my_app/core/models/teacher.dart'; // Import Teacher model
+import 'package:my_app/core/constants/app_constants.dart';
 
 class AuthRepository {
-  static const String _baseUrl = 'http://10.0.2.2:3000/api'; // Android Emulator
+  static final String _baseUrl = AppConstants.baseUrl;
 
   Future<User?> login(String email, String password) async {
     try {

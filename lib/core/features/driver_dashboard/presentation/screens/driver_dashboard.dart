@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:my_app/core/services/data_service.dart';
+import 'package:flutter/foundation.dart';
+import '../../../../constants/app_constants.dart';
 
 class DriverDashboard extends StatefulWidget {
   final String userId;
@@ -20,7 +22,7 @@ class _DriverDashboardState extends State<DriverDashboard> {
   IO.Socket? _socket;
   bool _isSocketConnected = false;
 
-  static const String serverUrl = 'http://10.0.2.2:3000';
+  static String get serverUrl => AppConstants.socketUrl;
 
   @override
   void initState() {

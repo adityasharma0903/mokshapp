@@ -9,6 +9,8 @@ import 'package:my_app/core/services/data_service.dart';
 import 'package:my_app/core/services/directions_service.dart';
 import 'package:my_app/core/models/route_info.dart';
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
+import '../../../../constants/app_constants.dart';
 
 class TrackVehicleScreen extends StatefulWidget {
   final Student student;
@@ -40,7 +42,8 @@ class _TrackVehicleScreenState extends State<TrackVehicleScreen> {
   Timer? _reconnectTimer;
   Timer? _routeUpdateTimer;
 
-  static const String SERVER_URL = 'http://10.0.2.2:3000';
+  static String get SERVER_URL => AppConstants.socketUrl;
+
   GoogleMapController? _mapController;
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
@@ -193,7 +196,7 @@ class _TrackVehicleScreenState extends State<TrackVehicleScreen> {
     }
 
     _socket = IO.io(
-      SERVER_URL,
+      AppConstants.socketUrl,
       IO.OptionBuilder()
           .setTransports(['websocket'])
           .disableAutoConnect()
