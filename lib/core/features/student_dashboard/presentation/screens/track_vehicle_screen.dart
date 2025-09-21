@@ -1,16 +1,13 @@
 import 'dart:async';
-import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:socket_io_client/socket_io_client.dart' as IO;
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:http/http.dart' as http;
-import 'package:my_app/core/models/student.dart';
-import 'package:my_app/core/services/data_service.dart';
-import 'package:my_app/core/services/directions_service.dart';
-import 'package:my_app/core/models/route_info.dart';
 import 'dart:math' as math;
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../../../../constants/app_constants.dart';
+import '../../../../../core/services/data_service.dart';
+import '../../../../../core/services/directions_service.dart';
+import '../../../../../core/models/student.dart';
+import '../../../../models/route_info.dart';
 
 class TrackVehicleScreen extends StatefulWidget {
   final Student student;
@@ -35,18 +32,21 @@ class _TrackVehicleScreenState extends State<TrackVehicleScreen> {
   bool _isVehicleOnline = false;
   bool _isSocketConnected = false;
   bool _isLoadingRoute = false;
-  bool _isInitialLoad = true; // New state to handle initial loading
+  bool _isInitialLoad = true;
 
   LatLng? _currentVehicleLocation;
   RouteInfo? _currentRoute;
-  Timer? _reconnectTimer;
-  Timer? _routeUpdateTimer;
-
-  static String get SERVER_URL => AppConstants.socketUrl;
-
   GoogleMapController? _mapController;
+
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
+
+  // Animation fields
+  List<LatLng> _routePoints = [];
+  int _animationIndex = 0;
+  Timer? _animationTimer;
+  double _vehicleRotation = 0.0;
+  Duration _animationStepDuration = const Duration(milliseconds: 300);
 
   static const LatLng _defaultDestination = LatLng(30.5789, 76.8372);
 
@@ -54,6 +54,8 @@ class _TrackVehicleScreenState extends State<TrackVehicleScreen> {
     target: LatLng(30.5789, 76.8372),
     zoom: 12,
   );
+
+  static String get SERVER_URL => AppConstants.socketUrl;
 
   @override
   void initState() {
@@ -63,40 +65,32 @@ class _TrackVehicleScreenState extends State<TrackVehicleScreen> {
 
   @override
   void dispose() {
-    _reconnectTimer?.cancel();
-    _routeUpdateTimer?.cancel();
-    _leaveSocketRoom();
+    _animationTimer?.cancel();
+    _socket?.disconnect();
     _mapController?.dispose();
     super.dispose();
   }
 
   Future<void> _initTracking() async {
-    setState(() {
-      _isInitialLoad = true;
-    });
+    setState(() => _isInitialLoad = true);
 
     await _fetchVehicleId();
-
     if (_vehicleId != null) {
       _setupDestinationMarker();
       _connectSocketAndListen();
       await _fetchLastKnownLocation();
     } else {
-      // Handle the case where no vehicle ID is found.
-      // You could show a snackbar or an alert dialog.
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Error: No vehicle assigned to this student.'),
+            content: Text('Error: No vehicle assigned.'),
             backgroundColor: Colors.red,
           ),
         );
       }
     }
 
-    setState(() {
-      _isInitialLoad = false;
-    });
+    setState(() => _isInitialLoad = false);
   }
 
   Future<void> _fetchVehicleId() async {
@@ -104,47 +98,26 @@ class _TrackVehicleScreenState extends State<TrackVehicleScreen> {
       if (widget.vehicleIdFromParent != null &&
           widget.vehicleIdFromParent!.isNotEmpty) {
         _vehicleId = widget.vehicleIdFromParent;
-        print('Using vehicle ID from parent: $_vehicleId');
         return;
       }
 
       if (widget.student.vehicleId != null &&
           widget.student.vehicleId!.isNotEmpty) {
         _vehicleId = widget.student.vehicleId;
-        print('Using vehicle ID from student object: $_vehicleId');
         return;
       }
 
-      // Try to fetch the vehicle ID from the API
       final response = await _dataService.get(
         'vehicles/by-student/${widget.student.id}',
       );
 
-      print('API response for vehicle ID: $response');
-
       if (response is Map && response['vehicle_id'] != null) {
-        setState(() {
-          _vehicleId = response['vehicle_id'].toString();
-        });
-        print('Fetched vehicle ID from API: $_vehicleId');
+        setState(() => _vehicleId = response['vehicle_id'].toString());
       } else {
-        // **This is the key change:** Use a specific fallback vehicle ID
-        // If no vehicle is assigned, default to a known vehicle to display on the map
-        setState(() {
-          _vehicleId =
-              '7958def7-96b8-11f0-a51e-a2aa391e9aae'; // Use a valid ID from your vehicles table
-        });
-        print(
-          'No vehicle assigned to student. Using fallback vehicle: $_vehicleId',
-        );
+        setState(() => _vehicleId = '7958def7-96b8-11f0-a51e-a2aa391e9aae');
       }
     } catch (e) {
-      print('Error fetching vehicle ID: $e');
-      // On API error, still use the fallback ID
-      setState(() {
-        _vehicleId = 'f2294eae-d884-4cbe-abf2-3ff5f4845883';
-      });
-      print('API error. Using fallback vehicle: $_vehicleId');
+      setState(() => _vehicleId = 'f2294eae-d884-4cbe-abf2-3ff5f4845883');
     }
   }
 
@@ -160,17 +133,10 @@ class _TrackVehicleScreenState extends State<TrackVehicleScreen> {
         final lng = double.parse(response['longitude'].toString());
         final lastLocation = LatLng(lat, lng);
 
-        print('Found last known location: $lat, $lng');
         await _updateVehicleLocationWithRoute(lastLocation);
-
-        setState(() {
-          _isVehicleOnline = false;
-        });
+        setState(() => _isVehicleOnline = false);
       }
-    } catch (e) {
-      print('Error fetching last known location: $e');
-      // No need to set vehicle online status here as this is a fallback.
-    }
+    } catch (_) {}
   }
 
   void _setupDestinationMarker() {
@@ -184,19 +150,14 @@ class _TrackVehicleScreenState extends State<TrackVehicleScreen> {
       ),
     );
 
-    setState(() {
-      _markers.add(destinationMarker);
-    });
+    setState(() => _markers.add(destinationMarker));
   }
 
   void _connectSocketAndListen() {
-    if (_vehicleId == null) {
-      print('Cannot connect socket: vehicle ID is null');
-      return;
-    }
+    if (_vehicleId == null) return;
 
     _socket = IO.io(
-      AppConstants.socketUrl,
+      SERVER_URL,
       IO.OptionBuilder()
           .setTransports(['websocket'])
           .disableAutoConnect()
@@ -204,484 +165,142 @@ class _TrackVehicleScreenState extends State<TrackVehicleScreen> {
     );
 
     _socket!.onConnect((_) {
-      print('Student socket connected: ${_socket!.id}');
-      setState(() {
-        _isSocketConnected = true;
-      });
-
-      final room = 'vehicle_$_vehicleId';
-      _socket!.emit('join_room', room);
-      print('Student joining room: $room');
-    });
-
-    _socket!.on('room_joined', (data) {
-      print('Successfully joined room: ${data['room']}');
+      setState(() => _isSocketConnected = true);
+      _socket!.emit('join_room', 'vehicle_$_vehicleId');
     });
 
     _socket!.on('location_update', (data) {
-      print('Student received location update: $data');
       try {
-        final double lat = (data['latitude'] is int)
-            ? (data['latitude'] as int).toDouble()
-            : (data['latitude'] as num).toDouble();
-        final double lng = (data['longitude'] is int)
-            ? (data['longitude'] as int).toDouble()
-            : (data['longitude'] as num).toDouble();
-
+        final double lat = (data['latitude'] as num).toDouble();
+        final double lng = (data['longitude'] as num).toDouble();
         final vehicleLocation = LatLng(lat, lng);
         _updateVehicleLocationWithRoute(vehicleLocation);
-
-        if (!_isVehicleOnline) {
-          setState(() {
-            _isVehicleOnline = true;
-          });
-        }
-      } catch (e) {
-        print('Invalid location update data: $e');
-      }
-    });
-
-    _socket!.on('vehicle_offline', (data) {
-      print('Vehicle went offline: $data');
-      setState(() {
-        _isVehicleOnline = false;
-      });
+        if (!_isVehicleOnline) setState(() => _isVehicleOnline = true);
+      } catch (_) {}
     });
 
     _socket!.onDisconnect((_) {
-      print('Student socket disconnected');
       setState(() {
         _isSocketConnected = false;
         _isVehicleOnline = false;
       });
-
-      _reconnectTimer = Timer(const Duration(seconds: 3), () {
-        if (mounted && !_isSocketConnected) {
-          print('Attempting to reconnect...');
-          _socket?.connect();
-        }
-      });
-    });
-
-    _socket!.onConnectError((error) {
-      print('Socket connection error: $error');
     });
 
     _socket!.connect();
   }
 
-  void _leaveSocketRoom() {
-    if (_socket != null) {
-      final room = _vehicleId != null ? 'vehicle_$_vehicleId' : null;
-      if (room != null) {
-        _socket!.emit('leave_room', room);
-      }
-      _socket!.disconnect();
-      _socket = null;
-    }
-  }
-
   Future<void> _updateVehicleLocationWithRoute(LatLng vehicleLocation) async {
     _currentVehicleLocation = vehicleLocation;
-
-    // Update vehicle marker immediately
     _updateVehicleMarker(vehicleLocation);
 
-    // Check if we need to update the route (significant location change or no existing route)
-    if (_shouldUpdateRoute(vehicleLocation)) {
-      await _fetchAndDisplayRoute(vehicleLocation, _defaultDestination);
-    }
+    // Fetch new route and start animation
+    await _fetchAndAnimateRoute(vehicleLocation, _defaultDestination);
 
-    _fitCameraToShowBothLocations(vehicleLocation, _defaultDestination);
+    _mapController?.animateCamera(CameraUpdate.newLatLng(vehicleLocation));
   }
 
-  bool _shouldUpdateRoute(LatLng newLocation) {
-    if (_currentRoute == null) return true;
-
-    // Update route if vehicle moved more than 100 meters from last route calculation
-    if (_currentRoute!.lastCalculatedFrom != null) {
-      final distance = _calculateDistance(
-        newLocation,
-        _currentRoute!.lastCalculatedFrom!,
-      );
-      return distance > 0.1; // 100 meters
-    }
-
-    return true;
-  }
-
-  Future<void> _fetchAndDisplayRoute(LatLng origin, LatLng destination) async {
-    if (_isLoadingRoute) return;
+  void _updateVehicleMarker(LatLng location) {
+    final vehicleMarker = Marker(
+      markerId: MarkerId('vehicle_$_vehicleId'),
+      position: location,
+      rotation: _vehicleRotation,
+      flat: true,
+      anchor: const Offset(0.5, 0.5),
+      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+    );
 
     setState(() {
-      _isLoadingRoute = true;
+      _markers.removeWhere((m) => m.markerId.value.startsWith('vehicle_'));
+      _markers.add(vehicleMarker);
     });
+  }
 
+  Future<void> _fetchAndAnimateRoute(LatLng origin, LatLng destination) async {
     try {
+      setState(() => _isLoadingRoute = true);
       final route = await _directionsService.getDirections(
         origin: origin,
         destination: destination,
         travelMode: TravelMode.driving,
       );
 
-      if (route != null && mounted) {
+      if (route != null) {
+        final polyline = Polyline(
+          polylineId: const PolylineId('route'),
+          points: route.polylinePoints,
+          color: Colors.blue,
+          width: 5,
+        );
+
         setState(() {
-          _currentRoute = route;
-          _isLoadingRoute = false;
+          _polylines.clear();
+          _polylines.add(polyline);
+          _routePoints = route.polylinePoints;
+          _animationIndex = 0;
         });
 
-        _displayRoute(route);
-        _showRouteInfo(route);
+        _startMarkerAnimation();
       }
-    } catch (e) {
-      print('Error fetching route: $e');
-      setState(() {
-        _isLoadingRoute = false;
-      });
-
-      // Fallback to straight line if routing fails
-      _displayStraightLineRoute(origin, destination);
-    }
+    } catch (_) {}
+    setState(() => _isLoadingRoute = false);
   }
 
-  void _displayRoute(RouteInfo route) {
-    final routePolyline = Polyline(
-      polylineId: const PolylineId('route'),
-      points: route.polylinePoints,
-      color: Colors.blue,
-      width: 4,
-      patterns: [],
-    );
+  void _startMarkerAnimation() {
+    _animationTimer?.cancel();
+    if (_routePoints.isEmpty) return;
 
-    // Add waypoint markers if any
-    Set<Marker> waypointMarkers = {};
-    for (int i = 0; i < route.waypoints.length; i++) {
-      waypointMarkers.add(
-        Marker(
-          markerId: MarkerId('waypoint_$i'),
-          position: route.waypoints[i],
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueOrange,
-          ),
-          infoWindow: InfoWindow(title: 'Waypoint ${i + 1}'),
-        ),
-      );
-    }
-
-    setState(() {
-      _polylines.clear();
-      _polylines.add(routePolyline);
-
-      // Remove old waypoint markers
-      _markers.removeWhere(
-        (marker) => marker.markerId.value.startsWith('waypoint_'),
-      );
-      _markers.addAll(waypointMarkers);
-    });
-  }
-
-  void _displayStraightLineRoute(LatLng origin, LatLng destination) {
-    final straightLinePolyline = Polyline(
-      polylineId: const PolylineId('straight_line'),
-      points: [origin, destination],
-      color: Colors.red,
-      width: 3,
-      patterns: [PatternItem.dash(20), PatternItem.gap(10)],
-    );
-
-    setState(() {
-      _polylines.clear();
-      _polylines.add(straightLinePolyline);
-    });
-  }
-
-  void _updateVehicleMarker(LatLng vehicleLocation) {
-    final distance = _calculateDistance(vehicleLocation, _defaultDestination);
-
-    final vehicleMarker = Marker(
-      markerId: MarkerId('vehicle_$_vehicleId'),
-      position: vehicleLocation,
-      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
-      infoWindow: InfoWindow(
-        title: 'Vehicle ${_vehicleId?.substring(0, 8)}',
-        snippet: _formatDistance(distance),
-      ),
-    );
-
-    setState(() {
-      _markers.removeWhere(
-        (marker) => marker.markerId.value.startsWith('vehicle_'),
-      );
-      _markers.add(vehicleMarker);
-    });
-  }
-
-  String _formatDistance(double distanceKm) {
-    if (distanceKm < 1) {
-      return '${(distanceKm * 1000).toStringAsFixed(0)} m';
-    } else {
-      return '${distanceKm.toStringAsFixed(1)} km';
-    }
-  }
-
-  void _showRouteInfo(RouteInfo route) {
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Route: ${route.distance} • ${route.duration}'),
-        duration: const Duration(seconds: 3),
-        backgroundColor: Colors.blue,
-      ),
-    );
-  }
-
-  double _calculateDistance(LatLng point1, LatLng point2) {
-    const double earthRadius = 6371;
-
-    double lat1Rad = point1.latitude * (math.pi / 180);
-    double lat2Rad = point2.latitude * (math.pi / 180);
-    double deltaLatRad = (point2.latitude - point1.latitude) * (math.pi / 180);
-    double deltaLngRad =
-        (point2.longitude - point1.longitude) * (math.pi / 180);
-
-    double a =
-        math.sin(deltaLatRad / 2) * math.sin(deltaLatRad / 2) +
-        math.cos(lat1Rad) *
-            math.cos(lat2Rad) *
-            math.sin(deltaLngRad / 2) *
-            math.sin(deltaLngRad / 2);
-    double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-
-    return earthRadius * c;
-  }
-
-  void _fitCameraToShowBothLocations(LatLng vehicle, LatLng destination) async {
-    if (_mapController == null) return;
-
-    try {
-      List<LatLng> allPoints = [vehicle, destination];
-
-      // Include route points for better camera fitting
-      if (_currentRoute != null && _currentRoute!.polylinePoints.isNotEmpty) {
-        allPoints.addAll(_currentRoute!.polylinePoints);
+    _animationTimer = Timer.periodic(_animationStepDuration, (timer) {
+      if (_animationIndex >= _routePoints.length) {
+        timer.cancel();
+        return;
       }
 
-      double minLat = allPoints.map((p) => p.latitude).reduce(math.min);
-      double maxLat = allPoints.map((p) => p.latitude).reduce(math.max);
-      double minLng = allPoints.map((p) => p.longitude).reduce(math.min);
-      double maxLng = allPoints.map((p) => p.longitude).reduce(math.max);
+      final newLoc = _routePoints[_animationIndex];
 
-      double latPadding = (maxLat - minLat) * 0.1;
-      double lngPadding = (maxLng - minLng) * 0.1;
-      LatLngBounds bounds = LatLngBounds(
-        southwest: LatLng(minLat - latPadding, minLng - lngPadding),
-        northeast: LatLng(maxLat + latPadding, maxLng + lngPadding),
-      );
+      if (_animationIndex > 0) {
+        _vehicleRotation = _getBearing(
+          _routePoints[_animationIndex - 1],
+          newLoc,
+        );
+      }
 
-      // Animate the camera to fit the bounds
-      await _mapController!.animateCamera(
-        CameraUpdate.newLatLngBounds(bounds, 100.0),
-      );
-    } catch (e) {
-      print('Error fitting camera: $e');
-    }
+      _updateVehicleMarker(newLoc);
+      _mapController?.animateCamera(CameraUpdate.newLatLng(newLoc));
+
+      _animationIndex++;
+    });
+  }
+
+  double _getBearing(LatLng start, LatLng end) {
+    final lat1 = start.latitude * (math.pi / 180);
+    final lng1 = start.longitude * (math.pi / 180);
+    final lat2 = end.latitude * (math.pi / 180);
+    final lng2 = end.longitude * (math.pi / 180);
+
+    final dLon = lng2 - lng1;
+    final y = math.sin(dLon) * math.cos(lat2);
+    final x =
+        math.cos(lat1) * math.sin(lat2) -
+        math.sin(lat1) * math.cos(lat2) * math.cos(dLon);
+    final brng = math.atan2(y, x) * (180 / math.pi);
+    return (brng + 360) % 360;
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isInitialLoad) {
-      return const Scaffold(
-        appBar: PreferredSize(
-          preferredSize: Size.fromHeight(kToolbarHeight),
-          child: Text(''), // Dummy AppBar to avoid crash
-        ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 20),
-              Text('Finding vehicle...', style: TextStyle(fontSize: 18)),
-            ],
-          ),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Track Vehicle'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-        actions: [
-          if (_isLoadingRoute)
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              ),
-            ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () async {
-              await _fetchLastKnownLocation();
-              if (!_isSocketConnected) {
-                _socket?.connect();
-              }
-              // Force route refresh
-              if (_currentVehicleLocation != null) {
-                await _fetchAndDisplayRoute(
-                  _currentVehicleLocation!,
-                  _defaultDestination,
-                );
-              }
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.navigation),
-            onPressed: () {
-              if (_currentVehicleLocation != null) {
-                _fetchAndDisplayRoute(
-                  _currentVehicleLocation!,
-                  _defaultDestination,
-                );
-              }
-            },
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12.0),
-            color: Colors.grey[100],
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.directions_bus,
-                      color: _isVehicleOnline ? Colors.green : Colors.grey,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Vehicle: ${_vehicleId?.substring(0, 8)}...',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            _isVehicleOnline
-                                ? 'Vehicle is online'
-                                : 'Vehicle is offline',
-                            style: TextStyle(
-                              color: _isVehicleOnline
-                                  ? Colors.green
-                                  : Colors.red,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        if (_currentRoute != null) ...[
-                          Text(
-                            _currentRoute!.distance,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          Text(
-                            _currentRoute!.duration,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ] else if (_currentVehicleLocation != null) ...[
-                          Text(
-                            _formatDistance(
-                              _calculateDistance(
-                                _currentVehicleLocation!,
-                                _defaultDestination,
-                              ),
-                            ),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          _isSocketConnected ? Icons.wifi : Icons.wifi_off,
-                          size: 16,
-                          color: _isSocketConnected ? Colors.green : Colors.red,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          _isSocketConnected ? 'Connected' : 'Disconnected',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: _isSocketConnected
-                                ? Colors.green
-                                : Colors.red,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (_currentRoute != null)
-                      Row(
-                        children: [
-                          Icon(Icons.route, size: 16, color: Colors.blue),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Route Active',
-                            style: TextStyle(fontSize: 12, color: Colors.blue),
-                          ),
-                        ],
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: GoogleMap(
-              initialCameraPosition: _initialCamera,
-              onMapCreated: (controller) {
-                _mapController = controller;
-              },
-              markers: _markers,
-              polylines: _polylines,
-              myLocationEnabled: false,
-              zoomControlsEnabled: true,
-              mapType: MapType.normal,
-              trafficEnabled: true,
-            ),
-          ),
-        ],
+      appBar: AppBar(title: const Text('Track Vehicle')),
+      body: GoogleMap(
+        initialCameraPosition: _initialCamera,
+        onMapCreated: (controller) => _mapController = controller,
+        markers: _markers,
+        polylines: _polylines,
+        myLocationEnabled: false,
+        zoomControlsEnabled: true,
       ),
     );
   }
