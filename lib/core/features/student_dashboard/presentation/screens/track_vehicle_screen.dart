@@ -51,7 +51,8 @@ class _TrackVehicleScreenState extends State<TrackVehicleScreen>
 
   static const LatLng _defaultDestination = LatLng(30.5789, 76.8372);
 
-  static const String _googleMapsApiKey = 'YOUR_GOOGLE_MAPS_API_KEY';
+  static const String _googleMapsApiKey =
+      'AIzaSyDLNz0G34OLxEQTqnDTG1_GurQImTxHs6U';
 
   CameraPosition _initialCamera = const CameraPosition(
     target: LatLng(30.5789, 76.8372),
