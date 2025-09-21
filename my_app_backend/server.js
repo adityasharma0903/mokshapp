@@ -6,6 +6,8 @@ const mysql = require("mysql2/promise")
 const cors = require("cors")
 const http = require("http")
 const socketIo = require("socket.io")
+const { Server } = require('socket.io'); // <-- this works now
+
 
 const app = express()
 const port = 3000
