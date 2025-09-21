@@ -105,8 +105,8 @@ class _TrackVehicleScreenState extends State<TrackVehicleScreen>
   Future<void> _createCustomMarkers() async {
     try {
       final Uint8List iconBytes = await getBytesFromAsset(
-        'assets/images/car_marker.png',
-        200,
+        'assets/images/img.png',
+        100,
       ); // 100 is the new width
       _carIcon = BitmapDescriptor.fromBytes(iconBytes);
       print('[v0] Custom car icon loaded and resized successfully');
