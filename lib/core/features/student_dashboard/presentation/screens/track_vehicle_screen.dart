@@ -33,6 +33,7 @@ class _TrackVehicleScreenState extends State<TrackVehicleScreen> {
   bool _isVehicleOnline = false;
   bool _isSocketConnected = false;
   bool _isLoadingRoute = false;
+  bool _isInitialLoad = true; // New state to handle initial loading
 
   LatLng? _currentVehicleLocation;
   RouteInfo? _currentRoute;
@@ -67,15 +68,38 @@ class _TrackVehicleScreenState extends State<TrackVehicleScreen> {
   }
 
   Future<void> _initTracking() async {
+    setState(() {
+      _isInitialLoad = true;
+    });
+
     await _fetchVehicleId();
-    _setupDestinationMarker();
-    _connectSocketAndListen();
-    await _fetchLastKnownLocation();
+
+    if (_vehicleId != null) {
+      _setupDestinationMarker();
+      _connectSocketAndListen();
+      await _fetchLastKnownLocation();
+    } else {
+      // Handle the case where no vehicle ID is found.
+      // You could show a snackbar or an alert dialog.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error: No vehicle assigned to this student.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+
+    setState(() {
+      _isInitialLoad = false;
+    });
   }
 
   Future<void> _fetchVehicleId() async {
     try {
-      if (widget.vehicleIdFromParent != null) {
+      if (widget.vehicleIdFromParent != null &&
+          widget.vehicleIdFromParent!.isNotEmpty) {
         _vehicleId = widget.vehicleIdFromParent;
         print('Using vehicle ID from parent: $_vehicleId');
         return;
@@ -84,25 +108,40 @@ class _TrackVehicleScreenState extends State<TrackVehicleScreen> {
       if (widget.student.vehicleId != null &&
           widget.student.vehicleId!.isNotEmpty) {
         _vehicleId = widget.student.vehicleId;
-        print('Using vehicle ID from student: $_vehicleId');
+        print('Using vehicle ID from student object: $_vehicleId');
         return;
       }
 
+      // Try to fetch the vehicle ID from the API
       final response = await _dataService.get(
         'vehicles/by-student/${widget.student.id}',
       );
+
+      print('API response for vehicle ID: $response');
+
       if (response is Map && response['vehicle_id'] != null) {
         setState(() {
           _vehicleId = response['vehicle_id'].toString();
         });
         print('Fetched vehicle ID from API: $_vehicleId');
       } else {
-        print('No vehicle assigned to student, using fallback');
-        _vehicleId = 'f2294eae-d884-4cbe-abf2-3ff5f4845883';
+        // **This is the key change:** Use a specific fallback vehicle ID
+        // If no vehicle is assigned, default to a known vehicle to display on the map
+        setState(() {
+          _vehicleId =
+              '7958def7-96b8-11f0-a51e-a2aa391e9aae'; // Use a valid ID from your vehicles table
+        });
+        print(
+          'No vehicle assigned to student. Using fallback vehicle: $_vehicleId',
+        );
       }
     } catch (e) {
       print('Error fetching vehicle ID: $e');
-      _vehicleId = 'f2294eae-d884-4cbe-abf2-3ff5f4845883';
+      // On API error, still use the fallback ID
+      setState(() {
+        _vehicleId = 'f2294eae-d884-4cbe-abf2-3ff5f4845883';
+      });
+      print('API error. Using fallback vehicle: $_vehicleId');
     }
   }
 
@@ -127,6 +166,7 @@ class _TrackVehicleScreenState extends State<TrackVehicleScreen> {
       }
     } catch (e) {
       print('Error fetching last known location: $e');
+      // No need to set vehicle online status here as this is a fallback.
     }
   }
 
@@ -360,7 +400,7 @@ class _TrackVehicleScreenState extends State<TrackVehicleScreen> {
       position: vehicleLocation,
       icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
       infoWindow: InfoWindow(
-        title: 'Vehicle $_vehicleId',
+        title: 'Vehicle ${_vehicleId?.substring(0, 8)}',
         snippet: _formatDistance(distance),
       ),
     );
@@ -431,15 +471,14 @@ class _TrackVehicleScreenState extends State<TrackVehicleScreen> {
 
       double latPadding = (maxLat - minLat) * 0.1;
       double lngPadding = (maxLng - minLng) * 0.1;
+      LatLngBounds bounds = LatLngBounds(
+        southwest: LatLng(minLat - latPadding, minLng - lngPadding),
+        northeast: LatLng(maxLat + latPadding, maxLng + lngPadding),
+      );
 
+      // Animate the camera to fit the bounds
       await _mapController!.animateCamera(
-        CameraUpdate.newLatLngBounds(
-          LatLngBounds(
-            southwest: LatLng(minLat - latPadding, minLng - lngPadding),
-            northeast: LatLng(maxLat + latPadding, maxLng + lngPadding),
-          ),
-          100.0,
-        ),
+        CameraUpdate.newLatLngBounds(bounds, 100.0),
       );
     } catch (e) {
       print('Error fitting camera: $e');
@@ -448,6 +487,24 @@ class _TrackVehicleScreenState extends State<TrackVehicleScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isInitialLoad) {
+      return const Scaffold(
+        appBar: PreferredSize(
+          preferredSize: Size.fromHeight(kToolbarHeight),
+          child: Text(''), // Dummy AppBar to avoid crash
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 20),
+              Text('Finding vehicle...', style: TextStyle(fontSize: 18)),
+            ],
+          ),
+        ),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: const Text('Track Vehicle'),

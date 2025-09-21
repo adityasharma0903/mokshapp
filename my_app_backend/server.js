@@ -1,5 +1,7 @@
 // server.js (Updated Version)
 const express = require("express")
+require('dotenv').config();
+
 const mysql = require("mysql2/promise")
 const cors = require("cors")
 const http = require("http")
@@ -22,14 +24,15 @@ const io = socketIo(server, {
 
 // MySQL pool
 const pool = mysql.createPool({
-  host: "localhost",
-  user: "root",
-  password: "Aditya@0903",
-  database: "moksh",
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-})
+});
 
 ;(async () => {
   try {
@@ -197,12 +200,18 @@ app.get("/api/vehicles/by-student/:userId", async (req, res) => {
   const userId = req.params.userId
   try {
     const [rows] = await pool.query(
-      `SELECT v.vehicle_id, v.vehicle_number, sva.route_id
-       FROM student_vehicle_assignments sva
+      `
+       SELECT
+          v.vehicle_id,
+          v.vehicle_number,
+          sva.route_id
+       FROM students s
+       JOIN student_vehicle_assignments sva ON s.student_id = sva.student_id
        JOIN vehicles v ON sva.vehicle_id = v.vehicle_id
-       WHERE sva.student_id = ? AND sva.status = 'active'
+       WHERE s.user_id = ? AND sva.status = 'active'
        ORDER BY sva.assigned_date DESC
-       LIMIT 1`,
+       LIMIT 1
+      `,
       [userId],
     )
     if (rows.length > 0) {
@@ -219,7 +228,6 @@ app.get("/api/vehicles/by-student/:userId", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch vehicle for student" })
   }
 })
-
 server.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`)
 })
