@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 import 'package:provider/provider.dart';
 import 'package:my_app/core/features/auth/data/repositories/auth_repository.dart';
 import 'package:my_app/core/features/auth/presentation/screens/login_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Load from assets folder
+  await dotenv.load(fileName: "assets/.env");
+
   runApp(const MyApp());
 }
 
