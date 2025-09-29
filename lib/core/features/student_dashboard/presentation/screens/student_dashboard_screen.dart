@@ -1,6 +1,7 @@
 // lib/features/student_dashboard/presentation/screens/student_dashboard_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:my_app/core/features/student_dashboard/presentation/screens/track_vehicle_dashboard.dart';
 import '../../../../../core/constants/app_colors.dart';
 import '../../../../../core/models/student.dart'; // Import Student model
 import '../../../../../core/services/data_service.dart';
@@ -285,16 +286,31 @@ class _StudentDashboardScreenState extends State<StudentDashboardScreen> {
                     );
                   },
                 ),
+
+                // _buildAcademicCard(
+                //   context,
+                //   title: 'Track Vehicle',
+                //   icon: Icons.location_on,
+                //   onTap: () {
+                //     Navigator.push(
+                //       context,
+                //       MaterialPageRoute(
+                //         builder: (context) =>
+                //             TrackVehicleScreen(student: widget.student),
+                //       ),
+                //     );
+                //   },
+                // ),
                 _buildAcademicCard(
                   context,
-                  title: 'Track Vehicle',
+                  title: 'Track All Vehicle',
                   icon: Icons.location_on,
                   onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) =>
-                            TrackVehicleScreen(student: widget.student),
+                            TrackVehicleDashboard(student: widget.student),
                       ),
                     );
                   },

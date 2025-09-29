@@ -1,13 +1,12 @@
 // server.js (Updated Version)
 const express = require("express")
-require('dotenv').config();
+require("dotenv").config()
 
 const mysql = require("mysql2/promise")
 const cors = require("cors")
 const http = require("http")
 const socketIo = require("socket.io")
-const { Server } = require('socket.io'); // <-- this works now
-
+const { Server } = require("socket.io") // <-- this works now
 
 const app = express()
 const port = 3000
@@ -34,8 +33,7 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-});
-
+})
 ;(async () => {
   try {
     const connection = await pool.getConnection()
@@ -59,6 +57,7 @@ const teacherRoutes = require("./routes/teachers")
 const announcementRoutes = require("./routes/announcements")
 const classRoutes = require("./routes/classes")
 const subjectRoutes = require("./routes/subjects")
+const driverRoutes = require("./routes/drivers")
 
 app.use("/api", authRoutes)
 app.use("/api/students", studentRoutes)
@@ -66,6 +65,7 @@ app.use("/api/teachers", teacherRoutes)
 app.use("/api/announcements", announcementRoutes)
 app.use("/api/classes", classRoutes)
 app.use("/api/subjects", subjectRoutes)
+app.use("/api/drivers", driverRoutes)
 
 // ---- Consolidated Location Handling ----
 
@@ -81,8 +81,8 @@ const updateAndBroadcastLocation = async (data) => {
   }
 
   // Sanitize and validate numeric values
-  const parsedLat = parseFloat(latitude)
-  const parsedLng = parseFloat(longitude)
+  const parsedLat = Number.parseFloat(latitude)
+  const parsedLng = Number.parseFloat(longitude)
 
   if (isNaN(parsedLat) || isNaN(parsedLng)) {
     console.error("Invalid numeric location data:", data)
@@ -118,13 +118,13 @@ app.post("/api/vehicles/location", async (req, res) => {
     await updateAndBroadcastLocation(req.body)
     res.status(200).json({
       message: "Location updated successfully via HTTP",
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     })
   } catch (err) {
     console.error("HTTP location update error:", err)
     res.status(500).json({
       error: "Failed to update location",
-      details: err.message
+      details: err.message,
     })
   }
 })
@@ -202,8 +202,7 @@ app.get("/api/vehicles/by-student/:userId", async (req, res) => {
   const userId = req.params.userId
   try {
     const [rows] = await pool.query(
-      `
-       SELECT
+      `SELECT
           v.vehicle_id,
           v.vehicle_number,
           sva.route_id
@@ -212,8 +211,7 @@ app.get("/api/vehicles/by-student/:userId", async (req, res) => {
        JOIN vehicles v ON sva.vehicle_id = v.vehicle_id
        WHERE s.user_id = ? AND sva.status = 'active'
        ORDER BY sva.assigned_date DESC
-       LIMIT 1
-      `,
+       LIMIT 1`,
       [userId],
     )
     if (rows.length > 0) {

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:my_app/core/features/admin_dashboard/presentation/screens/add_driver_screen.dart';
+import 'package:my_app/core/features/admin_dashboard/presentation/screens/drivers_list_screen.dart';
 import '../../../../../core/constants/app_colors.dart';
 import '../../../../../core/models/user.dart'; // Import User model
 import 'manage_students_screen.dart';
@@ -147,6 +149,32 @@ class AdminDashboardScreen extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (context) => const AssignClassesScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildDashboardCard(
+                  context,
+                  title: 'Add Drivers',
+                  icon: Icons.assignment_turned_in,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AddDriverScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildDashboardCard(
+                  context,
+                  title: 'Drivers List',
+                  icon: Icons.assignment_turned_in,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const DriversListScreen(),
                       ),
                     );
                   },
