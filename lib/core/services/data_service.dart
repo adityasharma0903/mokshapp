@@ -1,22 +1,18 @@
 // lib/core/services/data_service.dart
-
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:flutter/foundation.dart'; // For kDebugMode
-import '../constants/app_constants.dart'; // ✅ Import constants
+import 'package:flutter/foundation.dart';
+import '../constants/app_constants.dart';
 
 class DataService {
-  // Use a different base URL for the web, mobile emulator, or a physical device
   static final String _baseUrl = AppConstants.baseUrl;
-  // static const String _baseUrl = 'http://localhost:3000/api'; // iOS Simulator
-  // static const String _baseUrl = 'http://192.168.x.x:3000/api'; // Physical device
 
   final Map<String, String> _headers = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   };
 
-  // --- GET Request ---
+  // --- GET ---
   Future<dynamic> get(String endpoint) async {
     try {
       final response = await http.get(
@@ -24,24 +20,20 @@ class DataService {
         headers: _headers,
       );
       if (response.statusCode == 200) {
-        return jsonDecode(response.body); // can be Map OR List
+        return jsonDecode(response.body);
       } else {
         if (kDebugMode) {
-          print(
-            'GET request failed for $endpoint with status: ${response.statusCode}',
-          );
+          print('❌ GET $endpoint failed: ${response.statusCode}');
         }
         return null;
       }
     } catch (e) {
-      if (kDebugMode) {
-        print('Network error for GET $endpoint: $e');
-      }
+      if (kDebugMode) print('⚠️ Network error GET $endpoint: $e');
       return null;
     }
   }
 
-  // --- POST Request ---
+  // --- POST ---
   Future<Map<String, dynamic>> post(
     String endpoint,
     Map<String, dynamic> data,
@@ -56,21 +48,17 @@ class DataService {
         return jsonDecode(response.body);
       } else {
         if (kDebugMode) {
-          print(
-            'POST request failed for $endpoint with status: ${response.statusCode}',
-          );
+          print('❌ POST $endpoint failed: ${response.statusCode}');
         }
-        return {'error': 'Failed to post data', 'status': response.statusCode};
+        return {'error': 'Failed to post', 'status': response.statusCode};
       }
     } catch (e) {
-      if (kDebugMode) {
-        print('Network error for POST $endpoint: $e');
-      }
-      return {'error': 'Network error occurred'};
+      if (kDebugMode) print('⚠️ Network error POST $endpoint: $e');
+      return {'error': 'Network error'};
     }
   }
 
-  // --- PUT Request ---
+  // --- PUT ---
   Future<Map<String, dynamic>> put(
     String endpoint,
     Map<String, dynamic> data,
@@ -85,24 +73,17 @@ class DataService {
         return jsonDecode(response.body);
       } else {
         if (kDebugMode) {
-          print(
-            'PUT request failed for $endpoint with status: ${response.statusCode}',
-          );
+          print('❌ PUT $endpoint failed: ${response.statusCode}');
         }
-        return {
-          'error': 'Failed to update data',
-          'status': response.statusCode,
-        };
+        return {'error': 'Failed to update', 'status': response.statusCode};
       }
     } catch (e) {
-      if (kDebugMode) {
-        print('Network error for PUT $endpoint: $e');
-      }
-      return {'error': 'Network error occurred'};
+      if (kDebugMode) print('⚠️ Network error PUT $endpoint: $e');
+      return {'error': 'Network error'};
     }
   }
 
-  // --- DELETE Request ---
+  // --- DELETE ---
   Future<Map<String, dynamic>> delete(String endpoint) async {
     try {
       final response = await http.delete(
@@ -113,20 +94,13 @@ class DataService {
         return jsonDecode(response.body);
       } else {
         if (kDebugMode) {
-          print(
-            'DELETE request failed for $endpoint with status: ${response.statusCode}',
-          );
+          print('❌ DELETE $endpoint failed: ${response.statusCode}');
         }
-        return {
-          'error': 'Failed to delete data',
-          'status': response.statusCode,
-        };
+        return {'error': 'Failed to delete', 'status': response.statusCode};
       }
     } catch (e) {
-      if (kDebugMode) {
-        print('Network error for DELETE $endpoint: $e');
-      }
-      return {'error': 'Network error occurred'};
+      if (kDebugMode) print('⚠️ Network error DELETE $endpoint: $e');
+      return {'error': 'Network error'};
     }
   }
 }
