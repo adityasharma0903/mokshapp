@@ -27,10 +27,20 @@ class _TeacherLeavesScreenState extends State<TeacherLeavesScreen> {
       final response = await _dataService.get(
         'teachers/leaves/${widget.teacher.id}',
       );
+
       if (mounted && response is List) {
+        // --- MODIFICATION: FILTERING ON FRONTEND ---
+        final pendingRequests = response.where((request) {
+          // Assuming the initial status is 'Pending' and only these should be shown.
+          // Adjust 'Pending' if your server uses a different initial status string.
+          final status = request['status']?.toString().toLowerCase();
+          return status == null || status == 'pending';
+        }).toList();
+
         setState(() {
-          _leaveRequests = response;
+          _leaveRequests = pendingRequests;
         });
+        // --- END OF MODIFICATION ---
       }
     } catch (e) {
       if (mounted) {
@@ -45,20 +55,33 @@ class _TeacherLeavesScreenState extends State<TeacherLeavesScreen> {
     }
   }
 
+  // ... (The rest of _updateLeaveStatus remains the same) ...
+
   Future<void> _updateLeaveStatus(String leaveId, String status) async {
     final response = await _dataService.put('teachers/leaves/update/$leaveId', {
       'status': status,
     });
     if (mounted) {
-      if (response['message'] != null) {
+      if (response != null && response['message'] != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Leave request ${status.toLowerCase()}d.')),
         );
-        _fetchLeaveRequests(); // Refresh the list
+
+        setState(() {
+          // Remove the request from the local list upon successful update
+          final index = _leaveRequests.indexWhere(
+            (request) => request['leave_id'] == leaveId,
+          );
+          if (index != -1) {
+            _leaveRequests.removeAt(index);
+          }
+        });
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${response['error']}'),
+            content: Text(
+              'Error: ${response != null ? response['error'] : 'Unknown error'}',
+            ),
             backgroundColor: AppColors.error,
           ),
         );
@@ -68,6 +91,7 @@ class _TeacherLeavesScreenState extends State<TeacherLeavesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ... (Your build method remains the same) ...
     return Scaffold(
       appBar: AppBar(
         title: const Text('Manage Leaves'),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/constants/app_colors.dart';
 import '../../../../../core/services/data_service.dart';
+// Import the new detail screen (assuming you save it in a separate file)
+import 'announcement_detail_screen.dart';
 
 class StudentAnnouncementsScreen extends StatefulWidget {
   const StudentAnnouncementsScreen({super.key});
@@ -25,21 +27,29 @@ class _StudentAnnouncementsScreenState
   Future<void> _fetchAnnouncements() async {
     try {
       final response = await _dataService.get('announcements');
-      if (response is List) {
+      if (mounted && response is List) {
+        // Optional: Sort by date if available, to show latest first.
+        response.sort(
+          (a, b) => (b['date_posted'] ?? '').compareTo(a['date_posted'] ?? ''),
+        );
         setState(() {
           _announcements = response;
         });
-      } else {
+      } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Failed to load announcements.')),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -74,22 +84,31 @@ class _StudentAnnouncementsScreenState
                       announcement['title'] ?? 'No Title',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
+                    // Show a short preview of the message
                     subtitle: Text(
-                      announcement['message'] ?? 'No message provided.',
+                      announcement['message'] != null &&
+                              announcement['message'].length > 100
+                          ? announcement['message'].substring(0, 100) + '...'
+                          : announcement['message'] ?? 'No message provided.',
                     ),
+
+                    // --- MODIFICATION 1: Update Trailing ---
+                    // Replace the IconButton with a simple file icon for indication
                     trailing: announcement['attachment_url'] != null
-                        ? IconButton(
-                            icon: const Icon(Icons.download),
-                            onPressed: () {
-                              // TODO: Implement file download logic
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Downloading attachment...'),
-                                ),
-                              );
-                            },
-                          )
+                        ? const Icon(Icons.attach_file, color: Colors.grey)
                         : null,
+
+                    // --- MODIFICATION 2: Add onTap Navigation ---
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => AnnouncementDetailScreen(
+                            announcement: announcement,
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 );
               },
