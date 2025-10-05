@@ -1,38 +1,62 @@
 import 'package:flutter/material.dart';
 // url_launcher package use karna zaroori hai file open/download karne ke liye
 import 'package:url_launcher/url_launcher.dart';
+// To format the date/time
+import 'package:intl/intl.dart';
 
 import '../../../../../core/constants/app_colors.dart';
+
+// NOTE: You need to add the 'intl' package to your pubspec.yaml for formatting:
+// dependencies:
+//   intl: ^0.18.1  // Use the latest version
 
 class AnnouncementDetailScreen extends StatelessWidget {
   final Map<String, dynamic> announcement;
 
   const AnnouncementDetailScreen({super.key, required this.announcement});
 
-  // Function to handle opening the URL
+  // Function to handle opening the URL (improved for better download handling)
   Future<void> _launchUrl(BuildContext context, String url) async {
     final uri = Uri.parse(url);
-    if (!await launchUrl(uri)) {
+    // Use LaunchMode.externalApplication to delegate the URL opening
+    // to the external app (like browser/file manager), which often handles downloading better.
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Cant open this file')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Could not open this file or download link is invalid.',
+            ),
+          ),
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final title = announcement['title'] ?? 'Not available detail ';
+    final title = announcement['title'] ?? 'Detail Not Available';
     final message = announcement['message'] ?? 'No message found';
     final attachmentUrl = announcement['attachment_url'];
 
-    // Date ko format karna
-    final date = announcement['date_posted'] != null
-        ? DateTime.parse(
-            announcement['date_posted'],
-          ).toLocal().toString().split(' ')[0]
-        : 'N/A';
+    // --- FIX 1: Use 'created_at' (from your backend) and format the time ---
+    String formattedDateTime = 'N/A';
+    final dateTimeString = announcement['created_at'];
+
+    try {
+      if (dateTimeString != null) {
+        // Parse the DATETIME string from the database and convert to local time
+        final postedDateTime = DateTime.parse(dateTimeString).toLocal();
+        // Format the date and time (e.g., Oct 5, 2025 at 12:17 PM)
+        formattedDateTime = DateFormat(
+          'MMM d, yyyy HH:mm',
+        ).format(postedDateTime);
+      }
+    } catch (e) {
+      // Handle potential parsing error
+      print('Date parsing error: $e');
+    }
+    // --- END FIX 1 ---
 
     return Scaffold(
       appBar: AppBar(
@@ -54,9 +78,9 @@ class AnnouncementDetailScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            // Date
+            // Date and Time
             Text(
-              'Post has been done : $date',
+              'Posted on: $formattedDateTime',
               style: Theme.of(
                 context,
               ).textTheme.bodySmall?.copyWith(color: Colors.grey),
@@ -86,7 +110,7 @@ class AnnouncementDetailScreen extends StatelessWidget {
                 onTap: () => _launchUrl(context, attachmentUrl),
               ),
               const Text(
-                'tap on the link it will open in your browser or download manager.',
+                'Tap on the link; it will open in your browser or download manager.',
                 style: TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ],
