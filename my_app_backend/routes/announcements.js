@@ -41,14 +41,16 @@ router.post('/add', upload.single('file'), async (req, res) => {
     const { title, message, posted_by } = req.body;
 
     // --- New Logic to get/generate the downloadable URL ---
-    let attachment_url = req.body.attachment_url || null; // Fallback to body for manual URL or if no file
+let attachment_url = null;
 
-    if (req.file) {
-        // If a file was uploaded, generate the full, downloadable URL
-        attachment_url = getPublicUrl(req.file.filename);
-        // If using S3/Cloud Storage, this line would be replaced by the URL
-        // returned by your cloud storage upload function.
-    }
+if (req.file) {
+    // File uploaded → generate full public URL
+    attachment_url = getPublicUrl(req.file.filename);
+} else if (req.body.attachment_url) {
+    // Only fallback if no file uploaded
+    attachment_url = req.body.attachment_url;
+}
+
     // --- End New Logic ---
 
     if (!title || !message || !posted_by) {
