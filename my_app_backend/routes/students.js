@@ -3,6 +3,7 @@
 const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
+const { sendWelcomeEmail } = require('../services/emailService'); // Adjust path as needed
 
 // Endpoint to add a new student from the admin panel
 router.post('/add', async (req, res) => {
@@ -10,13 +11,17 @@ router.post('/add', async (req, res) => {
         email, password_hash, user_type,
         name, roll_number, dob, gender, nationality, religion, blood_group,
         contact_number, permanent_address, current_address, father_name, mother_name,
-        father_email, transport_acquired, has_sibling, photograph_url, class_id, class_teacher_id // Yahan class_teacher_id add kiya gaya hai
+        father_email, transport_acquired, has_sibling, photograph_url, class_id, class_teacher_id
     } = req.body;
 
     // Basic validation
     if (!email || !password_hash || !name || !roll_number || !class_id) {
         return res.status(400).send({ error: 'Required fields are missing.' });
     }
+
+    // IMPORTANT SECURITY NOTE: In a real application, you must HASH the password_hash
+    // before saving it to the database, but you should use the RAW password (password_hash)
+    // for the welcome email.
 
     const connection = await req.db.getConnection();
     try {
@@ -26,7 +31,7 @@ router.post('/add', async (req, res) => {
         const user_id = uuidv4();
         await connection.query(
             'INSERT INTO users (user_id, email, password_hash, user_type) VALUES (?, ?, ?, ?)',
-            [user_id, email, password_hash, user_type]
+            [user_id, email, password_hash, user_type] // Use HASHED password here in production!
         );
 
         // 2. Insert into students table
@@ -58,7 +63,24 @@ router.post('/add', async (req, res) => {
         }
 
         await connection.commit();
-        res.status(201).send({ message: 'Student and user created successfully.', student_id, user_id });
+
+        // --- 6. Send Welcome Email AFTER successful commit ---
+        // Pass the required credentials for the email
+        const emailSent = await sendWelcomeEmail(
+            father_email || email, // Prioritize father's email, fallback to student's login email
+            name,
+            email,                // Student's login email/username
+            password_hash         // Raw password for the initial welcome email
+        );
+        // ------------------------------------------------------
+
+        const emailMessage = emailSent ? ' and welcome email sent.' : ' but email sending failed.';
+
+        res.status(201).send({
+            message: 'Student and user created successfully.' + emailMessage,
+            student_id,
+            user_id
+        });
 
     } catch (err) {
         await connection.rollback();
@@ -68,6 +90,8 @@ router.post('/add', async (req, res) => {
         connection.release();
     }
 });
+
+
 router.get('/attendance/:studentId', async (req, res) => {
     const studentId = req.params.studentId;
     try {

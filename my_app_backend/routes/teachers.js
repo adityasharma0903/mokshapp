@@ -3,6 +3,8 @@
 const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
+const { sendTeacherWelcomeEmail } = require('../services/emailService'); // Adjust path as needed
+
 
 // Endpoint to get all teachers for the admin panel
 router.get('/', async (req, res) => {
@@ -37,7 +39,7 @@ router.post('/add', async (req, res) => {
         const user_id = uuidv4();
         await connection.query(
             'INSERT INTO users (user_id, email, password_hash, user_type) VALUES (?, ?, ?, ?)',
-            [user_id, email, password_hash, 'teacher']
+            [user_id, email, password_hash, 'teacher'] // Use HASHED password here in production!
         );
 
         // 2. Insert into teachers table
@@ -48,7 +50,23 @@ router.post('/add', async (req, res) => {
         );
 
         await connection.commit();
-        res.status(201).send({ message: 'Teacher and user created successfully.', teacher_id, user_id });
+
+        // --- 3. Send Welcome Email AFTER successful commit ---
+        const emailSent = await sendTeacherWelcomeEmail(
+            email,          // Recipient's email
+            name,           // Teacher's name
+            email,          // Login email
+            password_hash   // Raw password
+        );
+        // ---------------------------------------------------
+
+        const emailMessage = emailSent ? ' and welcome email sent.' : ' but email sending failed.';
+
+        res.status(201).send({
+            message: 'Teacher and user created successfully.' + emailMessage,
+            teacher_id,
+            user_id
+        });
 
     } catch (err) {
         await connection.rollback();
