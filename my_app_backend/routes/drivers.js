@@ -3,6 +3,8 @@ const router = express.Router()
 const { v4: uuidv4 } = require("uuid");
 // NOTE: bcrypt is necessary for secure password hashing
 const bcrypt = require('bcryptjs');
+const { sendDriverWelcomeEmail } = require('../services/emailService'); // Adjust path as needed
+
 
 const isValidEmail = (email) => {
     // Simple regex for email validation
@@ -33,11 +35,12 @@ router.post("/", async (req, res) => {
     const driverId = uuidv4();
     const vehicleId = uuidv4();
     let connection;
+    let plaintextPassword; // Declare outside try block for email access
 
     try {
         // 2. *** MODIFICATION: NO PASSWORD HASHING ***
-        // We use the plaintext password directly as the password_hash value.
-        const plaintextPassword = password;
+        plaintextPassword = password; // Assign here
+        // The security warning about plaintext passwords remains!
 
         // 3. Start a Transaction for atomicity
         connection = await req.db.getConnection();
@@ -58,7 +61,7 @@ router.post("/", async (req, res) => {
         `;
         await connection.query(userQuery, [driverId, email, plaintextPassword]);
 
-        // 5. Insert into vehicles table (using Option 2 fix from previous reply)
+        // 5. Insert into vehicles table
         const vehicleQuery = `
             INSERT INTO vehicles (vehicle_id, vehicle_number, vehicle_type, driver_id, capacity, status)
             VALUES (?, ?, ?, ?, ?, 'inactive')
@@ -74,8 +77,20 @@ router.post("/", async (req, res) => {
         // 6. Commit the transaction
         await connection.commit();
 
+        // --- 7. Send Welcome Email AFTER successful commit ---
+        const emailSent = await sendDriverWelcomeEmail(
+            email,             // Recipient's email
+            email,             // Login email
+            plaintextPassword, // Raw password
+            vehicle_number     // Vehicle number for context
+        );
+        // ---------------------------------------------------
+
+        const emailMessage = emailSent ? ' and welcome email sent.' : ' but email sending failed.';
+
+
         res.status(201).json({
-            message: "Driver and vehicle created successfully with plaintext password.",
+            message: "Driver and vehicle created successfully with plaintext password." + emailMessage,
             driver_id: driverId,
             vehicle_id: vehicleId,
         });

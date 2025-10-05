@@ -1,9 +1,8 @@
-// my_app_backend/routes/students.js
-
 const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
-const { sendWelcomeEmail } = require('../services/emailService'); // Adjust path as needed
+// Updated to include sendPasswordChangeNotification
+const { sendWelcomeEmail, sendPasswordChangeNotification } = require('../services/emailService');
 
 // Endpoint to add a new student from the admin panel
 router.post('/add', async (req, res) => {
